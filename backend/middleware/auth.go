@@ -26,6 +26,13 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return []byte("teja"), nil 
 		})
 
+// 		Decodes the token to extract the header, payload, and signature.
+// Uses the secret key ("teja") to generate a new signature.
+// Compares the generated signature with the signature from the token.
+// If both match → ✅ Token is valid (meaning it was signed using "teja").
+// If they don’t match → ❌ Invalid token (wrong secret or tampered token).
+
+
 		if err != nil || !token.Valid {
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return

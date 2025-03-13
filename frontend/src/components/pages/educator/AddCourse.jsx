@@ -1,10 +1,14 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import uniqid from "uniqid";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
 import { assets } from "../../../assets/assets";
-
+import { AppContext } from "../../../context/AppContext";
+import { toast } from "react-toastify";
+import axios from "axios"; // Missing import added
+import { v4 as uuidv4 } from 'uuid'; 
 const AddCourse = () => {
+  const {backendURL, token} = useContext(AppContext);
   const quillRef = useRef(null);
   const editorRef = useRef(null);
 
@@ -15,6 +19,7 @@ const AddCourse = () => {
   const [chapters, setChapters] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [currentChapterId, setCurrentChapterId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false); // Added loading state for better UX
   const [lectureDetails, setLectureDetails] = useState({
     lectureTitle: "",
     lectureDuration: "",
@@ -22,9 +27,65 @@ const AddCourse = () => {
     isPreviewFree: false,
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async(e) => {
+   try{
     e.preventDefault();
-    // Add your form submission logic here
+    if(!image){
+      toast.error("Please upload an image");
+      return; // Added return to prevent further execution
+    }
+
+    if(!courseTitle.trim()) {
+      toast.error("Course title is required");
+      return;
+    }
+
+    if(chapters.length === 0) {
+      toast.error("Please add at least one chapter");
+      return;
+    }
+
+    setIsLoading(true); // Set loading state before API call
+
+    const courseData = {
+      course_title: courseTitle,
+      course_description: quillRef.current.root.innerHTML,
+      course_price: Number(coursePrice),
+      discount: Number(discount),
+      course_content: chapters,
+    }
+    
+    const formData = new FormData();
+    formData.append("course_data", JSON.stringify(courseData));
+    formData.append("course_thumbnail", image);
+                    
+    const {data} = await axios.post(`${backendURL}/api/educator/add-course`, formData, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    if(data.success){
+      toast.success("Course added successfully");
+      setCourseTitle("");
+      setCoursePrice(0);
+      setDiscount(0);
+      setImage(null);
+      quillRef.current.root.innerHTML = "";
+      setChapters([]);
+      setShowPopup(false);                     
+    }
+    else{
+      toast.error(data.message || "Course not added");
+    }
+   }
+   catch(error){
+     toast.error(error.response?.data?.message || "Something went wrong");
+   }
+   finally {
+     setIsLoading(false); // Reset loading state after API call completes
+   }
   };
 
   const handleChapter = (action, chapterId) => {
@@ -32,7 +93,7 @@ const AddCourse = () => {
       const title = prompt('Enter Chapter Name:');
       if (title) {
         const newChapter = {
-          chapterId: uniqid(),
+          chapterId: uuidv4(),
           chapterTitle: title,
           chapterContent: [],
           collapsed: false,
@@ -72,15 +133,32 @@ const AddCourse = () => {
   };
 
   const addLecture = () => {
+    // Validate lecture inputs
+    if (!lectureDetails.lectureTitle.trim()) {
+      toast.error("Lecture title is required");
+      return;
+    }
+    
+    if (!lectureDetails.lectureDuration) {
+      toast.error("Lecture duration is required");
+      return;
+    }
+    
+    if (!lectureDetails.lectureUrl.trim()) {
+      toast.error("Lecture URL is required");
+      return;
+    }
+
     setChapters(
       chapters.map((chapter) => {
         if (chapter.chapterId === currentChapterId) {
           const newLecture = {
             ...lectureDetails,
+            lectureDuration: Number(lectureDetails.lectureDuration), // Convert to number
             lectureOrder: chapter.chapterContent.length > 0 
               ? chapter.chapterContent[chapter.chapterContent.length - 1].lectureOrder + 1 
               : 1,
-            lectureId: uniqid()
+            lectureId: uuidv4()
           };
           return {
             ...chapter,
@@ -104,6 +182,16 @@ const AddCourse = () => {
     if (!quillRef.current && editorRef.current) {
       quillRef.current = new Quill(editorRef.current, {
         theme: "snow",
+        placeholder: "Describe your course...",
+        modules: {
+          toolbar: [
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+            ['link', 'image'],
+            ['clean']
+          ]
+        }
       });
     }
   }, []);
@@ -146,6 +234,7 @@ const AddCourse = () => {
                 value={coursePrice}
                 type="number"
                 placeholder="0"
+                min="0"
                 className="outline-none md:py-2.5 py-2 w-28 px-3 rounded border border-gray-300"
                 required
               />
@@ -194,8 +283,7 @@ const AddCourse = () => {
           {/* Chapters and Lectures */}
           <div>
             {chapters.map((chapter, chapterIndex) => (
-              <div key={chapter.chapterId} className="bg-white border
-               rounded-lg mb-4">
+              <div key={chapter.chapterId} className="bg-white border rounded-lg mb-4">
                 <div className="flex justify-between items-center p-4 border-b">
                   <div className="flex items-center">
                     <img
@@ -227,10 +315,10 @@ const AddCourse = () => {
                     {chapter.chapterContent.map((lecture, lectureIndex) => (
                       <div
                         key={lecture.lectureId}
-                        className="flex justify-between items-center mb-2"
+                        className="flex justify-between items-center mb-2 border-b pb-2"
                       >
                         <span>
-                          {lectureIndex + 1}. {lecture.lectureTitle} - {lecture.lectureDuration}mins
+                          {lectureIndex + 1}. {lecture.lectureTitle} - {lecture.lectureDuration} mins
                           - <a href={lecture.lectureUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500">
                             Link
                           </a>
@@ -245,7 +333,7 @@ const AddCourse = () => {
                       </div>
                     ))}
                     <div
-                      className="inline-flex bg-gray-200 p-2 rounded cursor-pointer mt-2"
+                      className="inline-flex bg-gray-200 p-2 rounded cursor-pointer mt-2 hover:bg-gray-300"
                       onClick={() => handleLecture("add", chapter.chapterId)}
                     >
                       + Add Lecture
@@ -256,7 +344,7 @@ const AddCourse = () => {
             ))}
             
             <div
-              className="flex justify-center items-center bg-blue-400 p-2 rounded-lg cursor-pointer"
+              className="flex justify-center items-center bg-blue-400 p-2 rounded-lg cursor-pointer hover:bg-blue-500 text-white"
               onClick={() => handleChapter("add")}
             >
               + Add Chapter
@@ -264,17 +352,15 @@ const AddCourse = () => {
           </div>
 
           {showPopup && (
-            <div className="fixed inset-0 flex items-center justify-center 
-            
-            bg-opacity-50">
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
               <div className="bg-white text-gray-700 p-4 rounded relative w-full border border-gray-200 max-w-md">
-                <h2 className="text-lg pl-38 font-semibold mb-4">Add Lecture</h2>
+                <h2 className="text-lg font-semibold mb-4 text-center">Add Lecture</h2>
 
                 <div className="mb-4">
                   <p>Lecture Title</p>
                   <input
                     type="text"
-                    className="mt-1 block w-full border  rounded py-1 px-2"
+                    className="mt-1 block w-full border rounded py-1 px-2"
                     value={lectureDetails.lectureTitle}
                     onChange={(e) =>
                       setLectureDetails({
@@ -289,6 +375,7 @@ const AddCourse = () => {
                   <p>Duration (minutes)</p>
                   <input
                     type="number"
+                    min="1"
                     className="mt-1 block w-full border rounded py-1 px-2"
                     value={lectureDetails.lectureDuration}
                     onChange={(e) =>
@@ -304,7 +391,7 @@ const AddCourse = () => {
                   <p>Lecture URL</p>
                   <input
                     type="text"
-                    className="mt-1 block w-full border  rounded py-1 px-2"
+                    className="mt-1 block w-full border rounded py-1 px-2"
                     value={lectureDetails.lectureUrl}
                     onChange={(e) =>
                       setLectureDetails({
@@ -350,9 +437,10 @@ const AddCourse = () => {
 
           <button
             type="submit"
-            className="bg-black text-white w-max py-2.5 px-8 rounded my-4 hover:bg-gray-800"
+            disabled={isLoading}
+            className={`${isLoading ? 'bg-gray-500' : 'bg-black hover:bg-gray-800'} text-white w-max py-2.5 px-8 rounded my-4 flex items-center`}
           >
-            Add Course
+            {isLoading ? 'Adding Course...' : 'Add Course'}
           </button>
         </form>
       </div>

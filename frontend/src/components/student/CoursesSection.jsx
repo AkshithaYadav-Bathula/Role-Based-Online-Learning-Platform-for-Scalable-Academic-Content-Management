@@ -5,6 +5,7 @@ import CourseCard from './CourseCard'
 
 const CoursesSection = () => {
   const { allCourses } = useContext(AppContext)
+  console.log("All courses:", allCourses) // Debugging step
   
   return (
     <div className='py-16 px-6 md:px-8 lg:px-16 xl:px-40'>
@@ -16,7 +17,9 @@ const CoursesSection = () => {
       
       <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 my-10 md:my-16'>
         {allCourses && allCourses.length > 0 ? 
+
           allCourses.slice(0, 4).map((course, index) => (
+            
             <CourseCard key={course._id || index} course={course} />
           )) : 
           <p>No courses available at the moment.</p>

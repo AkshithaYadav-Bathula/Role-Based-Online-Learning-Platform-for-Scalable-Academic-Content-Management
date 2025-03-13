@@ -1,18 +1,21 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppContext } from "../../../context/AppContext";
 import { assets } from "../../../assets/assets";
 import Loading from "../../student/Loading";
 import humanizeDuration from "humanize-duration";
 import Footer from "../../student/Footer";
-import Youtube from "react-youtube"
+import Youtube from "react-youtube";
+import { toast } from "react-toastify";
+import axios from "axios";
 
 const CourseDetails = () => {
-  const { id } = useParams(); // Get the course ID from the URL
+  const { id } = useParams();
   const [openSections, setOpenSections] = useState({});
-  const [courseData, setCourseData] = useState(null); // State to store course data
+  const [courseData, setCourseData] = useState(null);
   const [isAlreadyEnrolled, setIsAlreadyEnrolled] = useState(false);
-  const [playerData,setPlayerData] = useState(null); // State to store player data
+  const [playerData, setPlayerData] = useState(null);
+  const navigate = useNavigate();
 
   const {
     allCourses,
@@ -21,30 +24,91 @@ const CourseDetails = () => {
     calculateCourseTime,
     calculateNoOfLectures,
     currency,
-  } = useContext(AppContext); // Access allCourses from context
+    backendURL,
+    token,
+    user,
+  } = useContext(AppContext);
 
-  // Fetch course data based on the ID
+
+
   const fetchCourseData = async () => {
-    if (allCourses && allCourses.length > 0) {
-      const findCourse = allCourses.find((course) => course._id === id);
-      if (findCourse) {
-        setCourseData(findCourse); // Set course data if found
+    try {
+      const { data } = await axios.get(`${backendURL}/api/course/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (data.success) {
+        setCourseData(data.course);
       } else {
-        console.error("Course not found"); // Handle case where course is not found
+        toast.error(`Failed to fetch course data: ${data.message}`);
       }
+    } catch (error) {
+      toast.error(error.message);
     }
-    console.log("Course Data:", courseData);
   };
 
-  // Re-fetch course data when allCourses or id changes
+  const enrollCourse = async () => {
+    try {
+      if (!user) {
+        toast.warn("Please login to enroll in a course.");
+        return;
+      }
+      if (isAlreadyEnrolled) {
+        toast.warn("You are already enrolled in this course.");
+        return;
+      }
+  
+      const { data } = await axios.post(
+        `${backendURL}/api/user/purchase/${id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+  
+      if (data.success) {
+        const sessionUrl = data.checkout_url;
+        localStorage.setItem("courseId", id);
+                        window.location.replace(sessionUrl); 
+      } else {
+        toast.error("Failed to enroll in course");
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  
+
   useEffect(() => {
     fetchCourseData();
-  }, [allCourses, id]); // Add allCourses and id as dependencies
+  }, []);
 
-  // Render loading state if courseData is not yet available
+  useEffect(() => {
+    if (user && courseData && Array.isArray(user.enrolled_courses)) {
+      const isEnrolled = user.enrolled_courses.some(
+        (course) => course.id === courseData.id
+      );
+      setIsAlreadyEnrolled(isEnrolled);
+    }
+  }, [user, courseData]);
+  
+
+  
+  console.log(courseData);
   if (!courseData) {
     return <Loading />;
   }
+
+  const courseDescription = courseData.course_description || "";
+  const educatorName = courseData.educator?.name || "Unknown Educator";
+  const courseContent = courseData.course_content || [];
+  const courseRatings = courseData.course_ratings || [];
+  const enrolledStudents = courseData.enrolled_students || [];
 
   const toggleSection = (index) => {
     setOpenSections((prev) => ({
@@ -62,12 +126,12 @@ const CourseDetails = () => {
         {/* Left column */}
         <div className="flex-1 md:w-1/2">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">
-            {courseData.courseTitle}
+            {courseData.course_title}
           </h1>
           <p
             className="text-base text-gray-600"
             dangerouslySetInnerHTML={{
-              __html: courseData.courseDescription.slice(0, 200),
+              __html: courseDescription.slice(0, 200),
             }}
           />
           {/* Review and rating */}
@@ -88,17 +152,15 @@ const CourseDetails = () => {
               ))}
             </div>
             <p className="text-gray-500">
-              {courseData.courseRatings.length}{" "}
-              {courseData.courseRatings.length > 1 ? "ratings" : "rating"}
+              ({courseRatings.length} {courseRatings.length > 1 ? "ratings" : "rating"})
             </p>
 
             <p className="text-gray-500">
-              {courseData.enrolledStudents.length}{" "}
-              {courseData.enrolledStudents.length > 1 ? "students" : "student"}
+              {enrolledStudents.length} {enrolledStudents.length > 1 ? "students" : "student"}
             </p>
           </div>
           <p className="text-gray-600">
-            Course by <span className="text-blue-600">Teja</span>
+            Course by <span className="text-blue-600">{educatorName}</span>
           </p>
 
           {/* Course Structure */}
@@ -106,7 +168,7 @@ const CourseDetails = () => {
             <h2 className="text-xl font-semibold">Course Structure</h2>
 
             <div className="pt-5">
-              {courseData.courseContent.map((chapter, index) => (
+              {courseContent.map((chapter, index) => (
                 <div
                   key={index}
                   className="border border-gray-300 bg-white mb-2 rounded"
@@ -124,11 +186,11 @@ const CourseDetails = () => {
                         alt="arrow icon"
                       />
                       <p className="font-medium md:text-base text-sm">
-                        {chapter.chapterTitle}
+                        {chapter.chapter_title}
                       </p>
                     </div>
                     <p className="text-sm md:text-base">
-                      {chapter.chapterContent.length} lectures -{" "}
+                      {chapter.chapter_content.length} lectures -{" "}
                       {calculateChapterTime(chapter)}
                     </p>
                   </div>
@@ -138,7 +200,7 @@ const CourseDetails = () => {
                     }`}
                   >
                     <ul className="md:pl-10 pl-4 pr-4 py-2 text-gray-600 border-t border-gray-300">
-                      {chapter.chapterContent.map((lecture, i) => (
+                      {chapter.chapter_content.map((lecture, i) => (
                         <li key={i} className="flex items-center gap-2 py-1">
                           <img
                             src={assets.play_icon}
@@ -146,20 +208,24 @@ const CourseDetails = () => {
                             alt="play icon"
                           />
                           <div className="flex items-center justify-between w-full text-gray-800 text-xs md:text-base">
-                            <p>{lecture.lectureTitle}</p>
+                            <p>{lecture.lecture_title}</p>
 
                             <div className="flex gap-2">
-                              {lecture.isPreviewFree && (
-                                <p onClick={()=>setPlayerData({
-                                  videoId:lecture.lectureUrl.split("/").pop() 
-                                })}
-                                className="text-blue-600 cursor-pointer">
+                              {lecture.is_preview_free && (
+                                <p
+                                  onClick={() =>
+                                    setPlayerData({
+                                      videoId: lecture.lecture_url.split("/").pop(),
+                                    })
+                                  }
+                                  className="text-blue-600 cursor-pointer"
+                                >
                                   Preview
                                 </p>
                               )}
                               <p>
                                 {humanizeDuration(
-                                  lecture.lectureDuration * 60 * 1000,
+                                  lecture.lecture_duration * 60 * 1000,
                                   { units: ["h", "m"] }
                                 )}
                               </p>
@@ -180,7 +246,7 @@ const CourseDetails = () => {
             <p
               className="pt-3 text-gray-600 rich-text"
               dangerouslySetInnerHTML={{
-                __html: courseData.courseDescription,
+                __html: courseDescription,
               }}
             />
           </div>
@@ -188,32 +254,31 @@ const CourseDetails = () => {
 
         {/* Right column */}
         <div className="md:w-1/3 w-full">
-        {
-                playerData ? 
-                <Youtube videoId={playerData.videoId} options={{playerVars:{
-                  autoplay:1
-                }}}
-                iframeClassName="w-full rounded-lg aspect-video shadow-md"
-                />
-                :
-                <img
-                src={courseData.courseThumbnail}
-                alt="Course Thumbnail"
-                className="w-full h-auto rounded-lg shadow-md"
-              />
-               
-              }
-         
+          {playerData ? (
+            <Youtube
+              videoId={playerData.videoId}
+              options={{
+                playerVars: {
+                  autoplay: 1,
+                },
+              }}
+              iframeClassName="w-full rounded-lg aspect-video shadow-md"
+            />
+          ) : (
+            <img
+              src={courseData.course_thumbnail}
+              alt="Course Thumbnail"
+              className="w-full h-auto rounded-lg shadow-md"
+            />
+          )}
+
           <div className="pt-5">
             <div className="flex items-center gap-2">
-             
-
-<img
+              <img
                 className="w-4 h-4"
                 src={assets.time_left_clock_icon}
                 alt="time_left_clock_icon"
               />
-              
               <p className="text-red-500 text-sm">
                 <span className="font-medium">5 days</span> left at this price!
               </p>
@@ -222,13 +287,13 @@ const CourseDetails = () => {
               <p className="text-gray-800 md:text-4xl text-2xl font-semibold">
                 {currency}
                 {(
-                  courseData.coursePrice -
-                  (courseData.discount * courseData.coursePrice) / 100
+                  courseData.course_price -
+                  (courseData.discount * courseData.course_price) / 100
                 ).toFixed(2)}
               </p>
               <p className="md:text-lg text-gray-500 line-through">
                 {currency}
-                {courseData.coursePrice}
+                {courseData.course_price}
               </p>
               <p className="md:text-lg text-gray-500">
                 {courseData.discount}% off
@@ -263,7 +328,10 @@ const CourseDetails = () => {
               </div>
             </div>
 
-            <button className="md:mt-6 mt-4 w-full py-3 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors">
+            <button
+              onClick={enrollCourse}
+              className="md:mt-6 mt-4 w-full py-3 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+            >
               {isAlreadyEnrolled ? "Already Enrolled" : "Enroll Now"}
             </button>
 

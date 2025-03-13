@@ -4,13 +4,19 @@ import (
 	"log"
 	"net/http"
 
- "github.com/TejaswiniYammanuru/LMS/backend/config"
+	"github.com/TejaswiniYammanuru/LMS/backend/config"
 	"github.com/TejaswiniYammanuru/LMS/backend/routes"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
 
 func main() {
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
 	db := config.InitialMigration()
 

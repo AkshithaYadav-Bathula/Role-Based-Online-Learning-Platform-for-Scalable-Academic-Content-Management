@@ -4,6 +4,7 @@ import Home from './components/pages/student/Home'
 import CourseList from './components/pages/student/CoursesList'
 import CourseDetails from './components/pages/student/CourseDetails'
 import MyEnrollments from './components/pages/student/MyEnrollments'
+
 import Player from './components/pages/student/Player'
 import Loading from './components/student/Loading'
 import Educator from './components/pages/educator/Educator'
@@ -13,23 +14,19 @@ import MyCourses from './components/pages/educator/MyCourses'
 import StudentsEnrolled from './components/pages/educator/StudentsEnrolled'
 import Navbar from './components/student/Navbar';
 import "quill/dist/quill.snow.css";
-<<<<<<< HEAD
-=======
 import AuthPage from './components/student/AuthPage';
->>>>>>> master
+import { ToastContainer } from 'react-toastify';
+import SuccessPage from './components/pages/student/SuccessPage';
 
 
 const App = () => {
   const isEducatorRoute = location.pathname.startsWith('/educator');
   return (
     <div className='text-default min-h-screen bg-white'>
-      {/* Remove the Navbar from here completely since Educator has its own */}
+      <ToastContainer/>
       <Routes>
-<<<<<<< HEAD
-=======
       <Route path="/auth" element={<AuthPage />} />
->>>>>>> master
-        {/* Student Routes */}
+      
         {!isEducatorRoute && (
           <>
             <Route path="/" element={<><Navbar/><Home /></>} />
@@ -38,6 +35,7 @@ const App = () => {
             <Route path="/course-details/:id" element={<><Navbar/><CourseDetails /></>} />
             <Route path="/course/:id" element={<><Navbar/><CourseDetails /></>} />
             <Route path="/my-enrollments" element={<><Navbar/><MyEnrollments/></>}/>
+            <Route path="/success" element={<SuccessPage />} /> 
             <Route path="/player/:courseID" element={<><Navbar/><Player/></>}/>
             <Route path="/loading/:path" element={<><Navbar/><Loading /></>}/>
           </>
