@@ -4,14 +4,14 @@ import Loading from "../../student/Loading";
 
 const StudentsEnrolled = () => {
   const { backendURL, token } = useContext(AppContext);
-  const [enrolledStudents, setEnrolledStudents] = useState(null);
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchEnrolledStudents = async () => {
       try {
-        const response = await fetch(`${backendURL}/api/educator/dashboard`, {
+        const response = await fetch(`${backendURL}/educators/enrolled_students`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -30,7 +30,7 @@ const StudentsEnrolled = () => {
         }
 
         // Process the data
-        setEnrolledStudents(data.dashboardData.enrolledStudents || []);
+        setEnrolledStudents(data.enrolledStudents || []);
       } catch (error) {
         console.error("Error fetching enrolled students:", error.message);
         setError(error.message);
@@ -65,10 +65,10 @@ const StudentsEnrolled = () => {
               <th className="px-4 py-3 font-semibold text-center hidden sm:table-cell">
                 #
               </th>
-              <th className="px-4 py-3 font-semibold">Student Name</th>
+              <th className="px-4 py-3 font-semibold">Student ID</th>
               <th className="px-4 py-3 font-semibold">Course Title</th>
               <th className="px-4 py-3 font-semibold hidden sm:table-cell">
-                Date
+                Purchase Date
               </th>
             </tr>
           </thead>
@@ -80,19 +80,13 @@ const StudentsEnrolled = () => {
                     {index + 1}
                   </td>
                   <td className="md:px-4 px-2 py-3 flex items-center space-x-3">
-                    <span className="truncate">{student.name}</span>
+                    <span className="truncate">{student.student}</span>
                   </td>
                   <td className="px-4 py-3 truncate">
-                    {student.enrolled_courses && student.enrolled_courses.length > 0
-                      ? student.enrolled_courses.map((course, i) => (
-                          <div key={i} className="truncate">
-                            {course.course_title}
-                          </div>
-                        ))
-                      : "No courses enrolled"}
+                    {student.courseTitle}
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
-                    {new Date(student.created_at).toLocaleDateString()}
+                    {new Date(student.purchaseDate).toLocaleDateString()}
                   </td>
                 </tr>
               ))

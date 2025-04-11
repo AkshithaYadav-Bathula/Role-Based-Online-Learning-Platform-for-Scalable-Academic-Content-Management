@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 const CourseCard = ({ course }) => {
   const { currency, calculateRating } = useContext(AppContext);
 
-  // Debugging: Log the course object
+  
   console.log("Course object:", course);
 
   if (!course) {
@@ -20,10 +20,11 @@ const CourseCard = ({ course }) => {
       className="border border-gray-500/30 pb-6 overflow-hidden rounded-lg"
     >
       <img
-        className="w-full"
-        src={course.course_thumbnail || assets.play_icon}
-        alt={course.course_title || "Course Thumbnail"}
-      />
+  src={course.thumbnail_url || assets.defaultThumbnail}
+  alt={course.course_title || "Course Thumbnail"}
+  className="w-full h-48 object-cover"
+/>
+
       <div className="p-3 text-left">
         <h3 className="text-base font-semibold">
           {course.course_title || "No Title"}
@@ -32,7 +33,7 @@ const CourseCard = ({ course }) => {
 
         {/* Star Rating Section */}
         <div className="flex items-center space-x-2">
-          <p>{calculateRating(course)}</p>
+          {/* <p>{calculateRating(course)}</p> */}
           <div className="flex gap-x-1 items-center">
             {[...Array(5)].map((_, i) => (
               <img

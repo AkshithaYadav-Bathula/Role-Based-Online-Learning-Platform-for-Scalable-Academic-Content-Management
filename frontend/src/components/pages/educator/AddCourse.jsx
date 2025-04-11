@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
-import uniqid from "uniqid";
+import { v4 as uuidv4 } from 'uuid';
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
 import { assets } from "../../../assets/assets";
 import { AppContext } from "../../../context/AppContext";
 import { toast } from "react-toastify";
-import axios from "axios"; // Missing import added
-import { v4 as uuidv4 } from 'uuid'; 
+import axios from "axios";
+
 const AddCourse = () => {
-  const {backendURL, token} = useContext(AppContext);
+  const { backendURL, token } = useContext(AppContext);
   const quillRef = useRef(null);
   const editorRef = useRef(null);
 
@@ -19,7 +19,7 @@ const AddCourse = () => {
   const [chapters, setChapters] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [currentChapterId, setCurrentChapterId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false); // Added loading state for better UX
+  const [isLoading, setIsLoading] = useState(false);
   const [lectureDetails, setLectureDetails] = useState({
     lectureTitle: "",
     lectureDuration: "",
@@ -32,7 +32,7 @@ const AddCourse = () => {
     e.preventDefault();
     if(!image){
       toast.error("Please upload an image");
-      return; // Added return to prevent further execution
+      return;
     }
 
     if(!courseTitle.trim()) {
@@ -45,7 +45,14 @@ const AddCourse = () => {
       return;
     }
 
-    setIsLoading(true); // Set loading state before API call
+    // Validate each chapter has at least one lecture
+    const invalidChapter = chapters.find(chapter => chapter.chapterContent.length === 0);
+    if (invalidChapter) {
+      toast.error(`Chapter "${invalidChapter.chapterTitle}" needs at least one lecture`);
+      return;
+    }
+
+    setIsLoading(true);
 
     const courseData = {
       course_title: courseTitle,
@@ -59,12 +66,15 @@ const AddCourse = () => {
     formData.append("course_data", JSON.stringify(courseData));
     formData.append("course_thumbnail", image);
                     
-    const {data} = await axios.post(`${backendURL}/api/educator/add-course`, formData, {
+    // Updated to match your Rails route
+    const response = await axios.post(`${backendURL}/educators/add_course`, formData, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'multipart/form-data',
       },
     });
+
+    const data = response.data;
 
     if(data.success){
       toast.success("Course added successfully");
@@ -81,10 +91,11 @@ const AddCourse = () => {
     }
    }
    catch(error){
+     console.error("Error adding course:", error);
      toast.error(error.response?.data?.message || "Something went wrong");
    }
    finally {
-     setIsLoading(false); // Reset loading state after API call completes
+     setIsLoading(false);
    }
   };
 
@@ -154,7 +165,7 @@ const AddCourse = () => {
         if (chapter.chapterId === currentChapterId) {
           const newLecture = {
             ...lectureDetails,
-            lectureDuration: Number(lectureDetails.lectureDuration), // Convert to number
+            lectureDuration: Number(lectureDetails.lectureDuration),
             lectureOrder: chapter.chapterContent.length > 0 
               ? chapter.chapterContent[chapter.chapterContent.length - 1].lectureOrder + 1 
               : 1,

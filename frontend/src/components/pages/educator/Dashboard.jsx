@@ -12,13 +12,12 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch(`${backendURL}/api/educator/dashboard`, {
+        const response = await fetch(`${backendURL}/educators/dashboard_data`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        // Check if the response is JSON
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
           const text = await response.text();
@@ -30,7 +29,6 @@ const Dashboard = () => {
           throw new Error(data.message || "Failed to fetch dashboard data");
         }
 
-        // Process the data
         setDashboardData(data.dashboardData);
       } catch (error) {
         console.error("Error fetching dashboard data:", error.message);
@@ -43,9 +41,7 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [backendURL, token]);
 
-  if (loading) {
-    return <Loading />;
-  }
+  if (loading) return <Loading />;
 
   if (error) {
     return (
@@ -66,10 +62,11 @@ const Dashboard = () => {
           <div className="flex items-center gap-3 shadow-card border border-blue-500 p-4 w-56 rounded-md">
             <img src={assets.patients_icon} alt="Total Enrollments Icon" />
             <div>
-              <p className="text-2xl font-medium text-gray-600">
-                {dashboardData?.enrolledStudents?.length || 0}
-              </p>
-              <p className="text-base text-gray-500">Total Enrolments</p>
+            <p className="text-2xl font-medium text-gray-600">
+  {dashboardData?.enrolledStudents?.length || 0}
+</p>
+
+              <p className="text-base text-gray-500">Enrollments</p>
             </div>
           </div>
 
@@ -103,36 +100,19 @@ const Dashboard = () => {
           <table className="table-auto w-full overflow-hidden">
             <thead className="text-gray-900 border-b border-gray-500/20 text-sm text-left">
               <tr>
-                <th className="px-4 py-3 font-semibold text-center hidden sm:table-cell">
-                  #
-                </th>
+                <th className="px-4 py-3 font-semibold text-center hidden sm:table-cell">#</th>
                 <th className="px-4 py-3 font-semibold">Student Name</th>
-                <th className="px-4 py-3 font-semibold">Course Title</th>
+                <th className="px-4 py-3 font-semibold">Email</th>
               </tr>
             </thead>
 
             <tbody className="text-sm text-gray-500">
-              {dashboardData?.enrolledStudents && dashboardData.enrolledStudents.length > 0 ? (
+              {dashboardData?.enrolledStudents?.length > 0 ? (
                 dashboardData.enrolledStudents.map((student, index) => (
-                  <tr key={index} className="border-b border-gray-500/20">
-                    <td className="px-4 py-3 text-center hidden sm:table-cell">
-                      {index + 1}
-                    </td>
-                    <td className="px-4 py-3 flex items-center space-x-3">
-                     
-                      <span className="truncate">
-                        {student.name || "Unknown Student"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 truncate">
-                      {student.enrolled_courses && student.enrolled_courses.length > 0
-                        ? student.enrolled_courses.map((course, i) => (
-                            <div key={i} className="truncate">
-                              {course.course_title || "Unknown Course"}
-                            </div>
-                          ))
-                        : "No courses enrolled"}
-                    </td>
+                  <tr key={student.id} className="border-b border-gray-500/20">
+                    <td className="px-4 py-3 text-center hidden sm:table-cell">{index + 1}</td>
+                    <td className="px-4 py-3">{student.name}</td>
+                    <td className="px-4 py-3">{student.email}</td>
                   </tr>
                 ))
               ) : (

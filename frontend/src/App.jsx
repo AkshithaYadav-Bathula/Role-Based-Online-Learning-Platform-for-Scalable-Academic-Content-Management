@@ -4,7 +4,7 @@ import Home from './components/pages/student/Home'
 import CourseList from './components/pages/student/CoursesList'
 import CourseDetails from './components/pages/student/CourseDetails'
 import MyEnrollments from './components/pages/student/MyEnrollments'
-
+import PaymentPage from './components/pages/student/PaymentPage';
 import Player from './components/pages/student/Player'
 import Loading from './components/student/Loading'
 import Educator from './components/pages/educator/Educator'
@@ -36,6 +36,7 @@ const App = () => {
             <Route path="/course/:id" element={<><Navbar/><CourseDetails /></>} />
             <Route path="/my-enrollments" element={<><Navbar/><MyEnrollments/></>}/>
             <Route path="/success" element={<SuccessPage />} /> 
+            <Route path="/payment/:courseId" element={<PaymentPage />} />
             <Route path="/player/:courseID" element={<><Navbar/><Player/></>}/>
             <Route path="/loading/:path" element={<><Navbar/><Loading /></>}/>
           </>

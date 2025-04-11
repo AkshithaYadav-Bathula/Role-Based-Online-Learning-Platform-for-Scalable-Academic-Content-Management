@@ -29,6 +29,15 @@ const Player = () => {
   const [progressData, setProgressData] = useState({ lecture_completed: [] });
   const [initialRating, setInitialRating] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [progressFetched, setProgressFetched] = useState(false);
+
+  // Helper function to create API URLs consistently
+  const createApiUrl = useCallback((endpoint) => {
+    // Ensure backendURL doesn't have a trailing slash and endpoint has a leading slash
+    const baseUrl = backendURL.endsWith('/') ? backendURL.slice(0, -1) : backendURL;
+    const apiPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    return `${baseUrl}${apiPath}`;
+  }, [backendURL]);
 
   // Fetch course data
   const getCourseData = useCallback(() => {
@@ -37,6 +46,7 @@ const Player = () => {
     const findCourse = enrolledCourses.find((course) => course.id === courseID);
     if (findCourse) {
       setCourseData(findCourse);
+      console.log(findCourse);
 
       // Set initial rating if the user has already rated the course
       const userRating = findCourse.course_ratings?.find(
@@ -50,24 +60,33 @@ const Player = () => {
 
   // Fetch course progress
   const getCourseProgress = useCallback(async () => {
-    if (!courseID || !token) return;
+    if (!courseID || !token || progressFetched) return;
 
     try {
       const { data } = await axios.get(
-        `${backendURL}/api/user/get-course-progress?course_id=${courseID}`,
+        createApiUrl(`users/get_course_progress?course_id=${courseID}`),
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
       setProgressData(data.progressData || { lecture_completed: [] });
+      setProgressFetched(true);
     } catch (error) {
       console.error("Error fetching course progress:", error);
-      toast.error(
-        error.response?.data?.message ||
-          'An error occurred while fetching course progress.'
-      );
+      handleApiError(error, 'An error occurred while fetching course progress');
     }
-  }, [backendURL, courseID, token]);
+  }, [createApiUrl, courseID, token, progressFetched]);
+
+  // Centralized error handling
+  const handleApiError = (error, defaultMessage) => {
+    if (error.response) {
+      toast.error(error.response.data.error || error.response.data.message || defaultMessage);
+    } else if (error.request) {
+      toast.error("No response received from server. Please check your connection.");
+    } else {
+      toast.error(`${defaultMessage}: ${error.message}`);
+    }
+  };
 
   // Mark lecture as completed
   const markLectureCompleted = async (lecture) => {
@@ -75,10 +94,10 @@ const Player = () => {
 
     try {
       const { data } = await axios.post(
-        `${backendURL}/api/user/update-course-progress`,
+        createApiUrl('users/update_course_progress'),
         {
           course_id: courseID,
-          lecture_id: lecture.lecture_id,
+          lecture_id: lecture.lecture_id || lecture.id,
         },
         {
           headers: {
@@ -90,7 +109,15 @@ const Player = () => {
 
       if (data.success) {
         toast.success('Lecture marked as completed successfully!');
-        await getCourseProgress(); // Refresh progress data
+        
+        // Update the local progress data directly instead of refetching
+        setProgressData(prevData => {
+          const updatedLectureCompleted = [...(prevData.lecture_completed || [])];
+          if (!updatedLectureCompleted.includes(lecture.lecture_id || lecture.id)) {
+            updatedLectureCompleted.push(lecture.lecture_id || lecture.id);
+          }
+          return { ...prevData, lecture_completed: updatedLectureCompleted };
+        });
 
         // Update lastRefreshed to trigger enrolledCourses update in the parent context
         setLastRefreshed(Date.now());
@@ -99,10 +126,7 @@ const Player = () => {
       }
     } catch (error) {
       console.error("Error marking lecture as completed:", error);
-      toast.error(
-        error.response?.data?.message ||
-          'An error occurred while marking lecture completed.'
-      );
+      handleApiError(error, 'An error occurred while marking lecture completed');
     }
   };
 
@@ -112,7 +136,7 @@ const Player = () => {
 
     try {
       const { data } = await axios.post(
-        `${backendURL}/api/user/add-rating`,
+        createApiUrl('users/add_rating'),
         {
           course_id: courseID,
           rating: rating,
@@ -133,25 +157,24 @@ const Player = () => {
       }
     } catch (error) {
       console.error("Error rating course:", error);
-      toast.error(
-        error.response?.data?.message || 'An error occurred while rating the course.'
-      );
+      handleApiError(error, 'An error occurred while rating the course');
     }
   };
 
   // Fetch data when component mounts and when enrolledCourses changes
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      getCourseData();
-      await getCourseProgress();
-      setIsLoading(false);
-    };
-
     if (enrolledCourses && enrolledCourses.length > 0) {
-      loadData();
+      getCourseData();
+      setIsLoading(false);
     }
-  }, [enrolledCourses, getCourseData, getCourseProgress]);
+  }, [enrolledCourses, getCourseData]);
+
+  // Fetch course progress only once
+  useEffect(() => {
+    if (courseID && token && !progressFetched) {
+      getCourseProgress();
+    }
+  }, [courseID, token, getCourseProgress, progressFetched]);
 
   // Toggle section visibility
   const toggleSection = (index) => {
@@ -189,10 +212,10 @@ const Player = () => {
       <div className="p-4 sm:p-10 flex flex-col-reverse md:grid md:grid-cols-2 gap-10 md:px-36">
         {/* Left Column: Course Structure */}
         <div className="text-gray-800">
-          <h2>Course Structure</h2>
+          <h2 className="text-xl font-semibold">Course Structure</h2>
           <div className="pt-5">
-            {courseData.course_content?.map((chapter, index) => (
-              <div key={chapter.chapter_id || index} className="border border-gray-300 bg-white mb-2 rounded">
+            {courseData.chapters?.map((chapter, index) => (
+              <div key={chapter.id || index} className="border border-gray-300 bg-white mb-2 rounded">
                 <div
                   onClick={() => toggleSection(index)}
                   className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
@@ -210,16 +233,16 @@ const Player = () => {
                     </p>
                   </div>
                   <p className="text-sm md:text-base">
-                    {chapter.chapter_content?.length || 0} lectures - {calculateChapterTime(chapter)}
+                    {chapter.lectures?.length || 0} lectures - {calculateChapterTime(chapter)}
                   </p>
                 </div>
                 <div className={`overflow-hidden transition-all duration-300 ${openSections[index] ? 'max-h-96' : 'max-h-0'}`}>
                   <ul className="md:pl-10 pl-4 pr-4 py-2 text-gray-600 border-t border-gray-300">
-                    {chapter.chapter_content?.map((lecture, i) => (
-                      <li key={lecture.lecture_id || i} className="flex items-center gap-2 py-1">
+                    {chapter.lectures?.map((lecture, i) => (
+                      <li key={lecture.id || i} className="flex items-center gap-2 py-1">
                         <img
                           src={
-                            isLectureCompleted(lecture.lecture_id)
+                            isLectureCompleted(lecture.id)
                               ? assets.blue_tick_icon
                               : assets.play_icon
                           }
@@ -268,19 +291,22 @@ const Player = () => {
               <button
                 onClick={() => markLectureCompleted(playerData)}
                 className={`mt-3 px-4 py-2 rounded ${
-                  isLectureCompleted(playerData.lecture_id)
+                  isLectureCompleted(playerData.id)
                     ? 'bg-green-500 text-white'
                     : 'bg-blue-500 text-white'
                 }`}
               >
-                {isLectureCompleted(playerData.lecture_id) ? 'Completed' : 'Mark Complete'}
+                {isLectureCompleted(playerData.id) ? 'Completed' : 'Mark Complete'}
               </button>
             </div>
           ) : (
             <img
-              src={courseData.course_thumbnail}
+              src={courseData.thumbnail_url || "https://via.placeholder.com/640x360?text=Course+Thumbnail"}
               alt="Course Thumbnail"
               className="w-full rounded-lg shadow-md"
+              onError={(e) => {
+                e.target.src = "https://via.placeholder.com/640x360?text=Course+Thumbnail";
+              }}
             />
           )}
         </div>

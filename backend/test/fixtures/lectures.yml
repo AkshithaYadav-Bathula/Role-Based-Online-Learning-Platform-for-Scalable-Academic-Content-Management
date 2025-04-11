@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  chapter: one
+  title: MyString
+  duration: 1
+  url: MyString
+  is_preview_free: false
+  order: 1
+
+two:
+  chapter: two
+  title: MyString
+  duration: 1
+  url: MyString
+  is_preview_free: false
+  order: 1

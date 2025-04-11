@@ -11,7 +11,7 @@ const Navbar = () => {
   const { isEducator, token, backendURL, setIsEducator } = useContext(AppContext);
   const isCourseListPage = location.pathname.includes("/course-list");
   const isLoggedIn = localStorage.getItem("token") !== null;
-  console.log( `${backendURL}/api/user/update-role`)
+  console.log( `${backendURL}/users/update_role`)
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -31,7 +31,7 @@ const Navbar = () => {
       }
 
       const { data } = await axios.post(
-        `${backendURL}/api/user/update-role`,{},
+        `${backendURL}/users/update_role`,{},
         
         {
           headers: {

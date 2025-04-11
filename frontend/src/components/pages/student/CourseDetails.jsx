@@ -29,14 +29,12 @@ const CourseDetails = () => {
     user,
   } = useContext(AppContext);
 
-
-
   const fetchCourseData = async () => {
     try {
-      const { data } = await axios.get(`${backendURL}/api/course/${id}`, {
-        headers: {
+      const { data } = await axios.get(`${backendURL}/courses/${id}`, {
+        headers: token ? {
           Authorization: `Bearer ${token}`,
-        },
+        } : {}
       });
 
       if (data.success) {
@@ -45,70 +43,47 @@ const CourseDetails = () => {
         toast.error(`Failed to fetch course data: ${data.message}`);
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || "Error fetching course data");
     }
   };
 
-  const enrollCourse = async () => {
-    try {
-      if (!user) {
-        toast.warn("Please login to enroll in a course.");
-        return;
-      }
-      if (isAlreadyEnrolled) {
-        toast.warn("You are already enrolled in this course.");
-        return;
-      }
-  
-      const { data } = await axios.post(
-        `${backendURL}/api/user/purchase/${id}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-  
-      if (data.success) {
-        const sessionUrl = data.checkout_url;
-        localStorage.setItem("courseId", id);
-                        window.location.replace(sessionUrl); 
-      } else {
-        toast.error("Failed to enroll in course");
-      }
-    } catch (error) {
-      toast.error(error.message);
+  const initiatePayment = () => {
+    if (!user) {
+      toast.warn("Please login to enroll in a course.");
+      navigate("/auth");
+      return;
     }
+      
+    if (isAlreadyEnrolled) {
+      toast.warn("You are already enrolled in this course.");
+      return;
+    }
+    
+    // Navigate to the payment page instead of showing the form inline
+    navigate(`/payment/${id}`);
   };
-
-  
 
   useEffect(() => {
     fetchCourseData();
-  }, []);
+  }, [id]);
 
   useEffect(() => {
-    if (user && courseData && Array.isArray(user.enrolled_courses)) {
-      const isEnrolled = user.enrolled_courses.some(
-        (course) => course.id === courseData.id
-      );
-      setIsAlreadyEnrolled(isEnrolled);
+    if (user && courseData) {
+      // Check if user is already enrolled in this course
+      const enrolledCourseIds = user.enrolled_courses?.map(course => course.id) || [];
+      setIsAlreadyEnrolled(enrolledCourseIds.includes(courseData.id));
     }
   }, [user, courseData]);
-  
 
-  
-  console.log(courseData);
   if (!courseData) {
     return <Loading />;
   }
 
   const courseDescription = courseData.course_description || "";
   const educatorName = courseData.educator?.name || "Unknown Educator";
-  const courseContent = courseData.course_content || [];
+  const courseContent = courseData.chapters || [];
   const courseRatings = courseData.course_ratings || [];
-  const enrolledStudents = courseData.enrolled_students || [];
+
 
   const toggleSection = (index) => {
     setOpenSections((prev) => ({
@@ -128,15 +103,15 @@ const CourseDetails = () => {
           <h1 className="text-3xl font-bold text-gray-800 mb-4">
             {courseData.course_title}
           </h1>
-          <p
+          {/* <p
             className="text-base text-gray-600"
             dangerouslySetInnerHTML={{
               __html: courseDescription.slice(0, 200),
             }}
-          />
+          /> */}
           {/* Review and rating */}
           <div className="flex items-center space-x-2 pt-3 pb-1 text-sm">
-            <p>{calculateRating(courseData)}</p>
+            {/* <p>{calculateRating(courseData)}</p> */}
             <div className="flex">
               {[...Array(5)].map((_, i) => (
                 <img
@@ -154,10 +129,11 @@ const CourseDetails = () => {
             <p className="text-gray-500">
               ({courseRatings.length} {courseRatings.length > 1 ? "ratings" : "rating"})
             </p>
-
             <p className="text-gray-500">
-              {enrolledStudents.length} {enrolledStudents.length > 1 ? "students" : "student"}
-            </p>
+  {courseData.enrolled_students_count}{" "}
+  {courseData.enrolled_students_count === 1 ? "Student" : "Students"}
+</p>
+
           </div>
           <p className="text-gray-600">
             Course by <span className="text-blue-600">{educatorName}</span>
@@ -190,7 +166,7 @@ const CourseDetails = () => {
                       </p>
                     </div>
                     <p className="text-sm md:text-base">
-                      {chapter.chapter_content.length} lectures -{" "}
+                      {chapter.lectures?.length || 0} lectures -{" "}
                       {calculateChapterTime(chapter)}
                     </p>
                   </div>
@@ -200,7 +176,7 @@ const CourseDetails = () => {
                     }`}
                   >
                     <ul className="md:pl-10 pl-4 pr-4 py-2 text-gray-600 border-t border-gray-300">
-                      {chapter.chapter_content.map((lecture, i) => (
+                      {chapter.lectures?.map((lecture, i) => (
                         <li key={i} className="flex items-center gap-2 py-1">
                           <img
                             src={assets.play_icon}
@@ -211,7 +187,7 @@ const CourseDetails = () => {
                             <p>{lecture.lecture_title}</p>
 
                             <div className="flex gap-2">
-                              {lecture.is_preview_free && (
+                              {lecture.is_preview_free && lecture.lecture_url && (
                                 <p
                                   onClick={() =>
                                     setPlayerData({
@@ -266,7 +242,7 @@ const CourseDetails = () => {
             />
           ) : (
             <img
-              src={courseData.course_thumbnail}
+              src={courseData.thumbnail_url}
               alt="Course Thumbnail"
               className="w-full h-auto rounded-lg shadow-md"
             />
@@ -329,8 +305,12 @@ const CourseDetails = () => {
             </div>
 
             <button
-              onClick={enrollCourse}
-              className="md:mt-6 mt-4 w-full py-3 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+              onClick={initiatePayment}
+              className={`md:mt-6 mt-4 w-full py-3 rounded font-medium transition-colors ${
+                isAlreadyEnrolled 
+                  ? "bg-green-600 text-white hover:bg-green-700" 
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
             >
               {isAlreadyEnrolled ? "Already Enrolled" : "Enroll Now"}
             </button>
