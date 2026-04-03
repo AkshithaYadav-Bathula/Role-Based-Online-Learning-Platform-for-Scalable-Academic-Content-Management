@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from "react";
+import React, { useState, useEffect, useCallback, useContext, useRef } from "react";
 import { Line } from "rc-progress";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -23,6 +23,7 @@ const MyEnrollments = () => {
   const [progressArray, setProgressArray] = useState([]);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [isLoadingEnrolledCourses, setIsLoadingEnrolledCourses] = useState(false);
+  const isFetchingEnrolledRef = useRef(false);
 
   // Centralized error handling
   const handleApiError = useCallback((error, defaultMessage) => {
@@ -38,9 +39,10 @@ const MyEnrollments = () => {
 
   // Fetch enrolled courses
   const loadEnrolledCourses = useCallback(async () => {
-    if (!token || isLoadingEnrolledCourses) return;
+    if (!token || isFetchingEnrolledRef.current) return;
     
     try {
+      isFetchingEnrolledRef.current = true;
       setIsLoadingEnrolledCourses(true);
       
       // Use the fetchUserEnrolledCourses from context if available
@@ -65,8 +67,9 @@ const MyEnrollments = () => {
       handleApiError(error, "Failed to fetch enrolled courses");
     } finally {
       setIsLoadingEnrolledCourses(false);
+      isFetchingEnrolledRef.current = false;
     }
-  }, [token, backendURL, contextEnrolledCourses, isLoadingEnrolledCourses, handleApiError]);
+  }, [token, backendURL, contextEnrolledCourses, handleApiError]);
 
   // Fetch course progress
   const getCourseProgress = useCallback(async () => {

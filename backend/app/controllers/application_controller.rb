@@ -10,10 +10,14 @@ class ApplicationController < ActionController::API
     if token
       begin
         @decoded = decode_token(token)
+        if @decoded.nil? || @decoded[:user_id].blank?
+          render json: { error: 'Invalid token' }, status: :unauthorized
+          return
+        end
         @current_user = User.find(@decoded[:user_id])
-      rescue ActiveRecord::RecordNotFound => e
+      rescue ActiveRecord::RecordNotFound
         render json: { error: 'User not found' }, status: :unauthorized
-      rescue JWT::DecodeError => e
+      rescue JWT::DecodeError
         render json: { error: 'Invalid token' }, status: :unauthorized
       end
     else
@@ -29,7 +33,6 @@ class ApplicationController < ActionController::API
     body = JWT.decode(token, jwt_secret)[0]
     HashWithIndifferentAccess.new body
   rescue JWT::DecodeError => e
-    # Return more detailed error for debugging
     Rails.logger.error("JWT decode error: #{e.message}")
     nil
   end
