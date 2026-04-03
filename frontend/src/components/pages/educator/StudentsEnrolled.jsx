@@ -65,7 +65,8 @@ const StudentsEnrolled = () => {
               <th className="px-4 py-3 font-semibold text-center hidden sm:table-cell">
                 #
               </th>
-              <th className="px-4 py-3 font-semibold">Student ID</th>
+              <th className="px-4 py-3 font-semibold">Student Name</th>
+              <th className="px-4 py-3 font-semibold hidden sm:table-cell">Email</th>
               <th className="px-4 py-3 font-semibold">Course Title</th>
               <th className="px-4 py-3 font-semibold hidden sm:table-cell">
                 Purchase Date
@@ -80,8 +81,9 @@ const StudentsEnrolled = () => {
                     {index + 1}
                   </td>
                   <td className="md:px-4 px-2 py-3 flex items-center space-x-3">
-                    <span className="truncate">{student.student}</span>
+                    <span className="truncate">{student.studentName || student.studentId}</span>
                   </td>
+                  <td className="px-4 py-3 hidden sm:table-cell truncate">{student.studentEmail || "-"}</td>
                   <td className="px-4 py-3 truncate">
                     {student.courseTitle}
                   </td>
@@ -92,7 +94,7 @@ const StudentsEnrolled = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="4" className="text-center py-6 text-gray-600">
+                <td colSpan="5" className="text-center py-6 text-gray-600">
                   No students enrolled yet.
                 </td>
               </tr>

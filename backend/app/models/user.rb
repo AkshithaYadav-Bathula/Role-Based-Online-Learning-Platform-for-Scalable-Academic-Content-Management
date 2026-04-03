@@ -1,7 +1,8 @@
 class User < ApplicationRecord
   has_secure_password
   
-  has_many :user_courses, dependent: :destroy
+  # user_courses has no primary key (id: false), so delete rows directly.
+  has_many :user_courses, dependent: :delete_all
   has_many :enrolled_courses, through: :user_courses, source: :course
   has_many :course_progresses, dependent: :destroy
   has_many :course_ratings, dependent: :destroy
