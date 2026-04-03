@@ -10,7 +10,10 @@ import Footer from "../../student/Footer";
 import { assets } from "../../../assets/assets";
 
 // Load Stripe outside of component to avoid recreation
-const stripePromise = loadStripe("pk_test_51PvbvgFu8YYdQhV12uDVUSMxJcmsW3rkekgjwwHdLepj31Wg9YI4EZCL451yX6hm7H1ZCACtbLb4oJ3iUDj5kIyd00qyjKZu5X");
+const stripePublishableKey =
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+  "pk_test_51PvbvgFu8YYdQhV12uDVUSMxJcmsW3rkekgjwwHdLepj31Wg9YI4EZCL451yX6hm7H1ZCACtbLb4oJ3iUDj5kIyd00qyjKZu5X";
+const stripePromise = loadStripe(stripePublishableKey);
 
 // Payment form component
 const CheckoutForm = ({ courseId, onSuccess }) => {

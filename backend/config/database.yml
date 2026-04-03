@@ -23,8 +23,8 @@ default: &default
 development:
   <<: *default
   database: edemyy
-  username: postgres
-  password: abc123  # Use your PostgreSQL password here
+  username: <%= ENV.fetch("POSTGRES_USER", "postgres") %>
+  password: <%= ENV["POSTGRES_PASSWORD"] %>
   host: 127.0.0.1  # Ensure your PostgreSQL is running on localhost
   port: 5432
 
@@ -62,8 +62,8 @@ test:
   adapter: postgresql
   encoding: unicode
   database: edemyy
-  username: postgres
-  password: abc123
+  username: <%= ENV.fetch("POSTGRES_USER", "postgres") %>
+  password: <%= ENV["POSTGRES_PASSWORD"] %>
   host: 127.0.0.1
   port: 5432
 
