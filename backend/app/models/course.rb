@@ -5,10 +5,13 @@ class Course < ApplicationRecord
   has_many :course_ratings, dependent: :destroy
   has_many :purchases, dependent: :destroy
   # user_courses has no primary key (id: false), so delete rows directly.
-  has_many :user_courses, dependent: :delete_all
+  has_many :user_courses
   has_many :users, through: :user_courses
   has_many :course_progresses, dependent: :destroy
   has_many :announcements, dependent: :destroy
+  has_many :course_doubts, dependent: :destroy
+
+  before_destroy :delete_user_courses_records
 
   has_one_attached :thumbnail
 
@@ -34,5 +37,11 @@ class Course < ApplicationRecord
 
   def discounted_price
     (course_price * (100 - discount) / 100.0).round(2)
+  end
+
+  private
+
+  def delete_user_courses_records
+    UserCourse.where(course_id: id).delete_all
   end
 end

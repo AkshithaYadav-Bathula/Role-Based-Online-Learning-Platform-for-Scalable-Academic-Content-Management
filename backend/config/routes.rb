@@ -19,6 +19,8 @@ Rails.application.routes.draw do
   get 'users/get_user_data', to: 'users#get_user_data'
   get 'users/enrolled_courses', to: 'users#get_enrolled_courses'
   get 'users/announcements', to: 'users#get_announcements'
+  get 'users/course_doubts', to: 'users#course_doubts'
+  post 'users/course_doubts', to: 'users#create_course_doubt'
   
   # Updated Stripe payment routes
   post 'users/create_payment_intent', to: 'users#create_payment_intent'
@@ -30,6 +32,9 @@ Rails.application.routes.draw do
   get 'users/get_course_progress', to: 'users#get_course_progress'
   post 'users/add_rating', to: 'users#add_rating'
   post 'users/update_role', to: 'users#update_role'
+
+  get 'educators/courses/:id/doubts', to: 'educators#course_doubts'
+  post 'educators/courses/:id/doubts/:doubt_id/reply', to: 'educators#reply_course_doubt'
   
   # Keep but might be unnecessary with new flow
   get '/success', to: 'users#verify_payment'

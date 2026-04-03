@@ -1,4 +1,4 @@
-import {  Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import React from 'react'
 import Home from './components/pages/student/Home'
 import CourseList from './components/pages/student/CoursesList'
@@ -49,6 +49,8 @@ const App = () => {
           <Route path="my-courses" element={<MyCourses/>}/>
           <Route path="students-enrolled" element={<StudentsEnrolled/>}/>
         </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   )

@@ -6,6 +6,7 @@ import Loading from "../../student/Loading";
 import { useNavigate } from "react-router-dom";
 import humanizeDuration from "humanize-duration";
 import { AppContext } from "../../../context/AppContext";
+import { assets } from "../../../assets/assets";
 
 const MyEnrollments = () => {
   const navigate = useNavigate();
@@ -262,7 +263,7 @@ const MyEnrollments = () => {
           <div className="flex flex-col items-center py-10">
             <p className="text-gray-600 mb-4">You have not enrolled in any courses yet.</p>
             <button 
-              onClick={() => navigate('/courses')}
+              onClick={() => navigate('/course-list')}
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
             >
               Browse Courses
@@ -284,11 +285,12 @@ const MyEnrollments = () => {
                   {/* Course Thumbnail and Title */}
                   <td className="px-6 py-4 flex items-center gap-4">
                     <img
-                      src={course.course_thumbnail || "https://via.placeholder.com/100x60?text=No+Image"}
+                      src={course.thumbnail_url || assets.course_4_thumbnail}
                       alt={course.course_title}
                       className="w-16 sm:w-20 md:w-24 border h-auto object-cover"
                       onError={(e) => {
-                        e.target.src = "https://via.placeholder.com/100x60?text=No+Image";
+                        e.target.onerror = null;
+                        e.target.src = assets.course_4_thumbnail;
                       }}
                     />
                     <div className="flex flex-col gap-2">

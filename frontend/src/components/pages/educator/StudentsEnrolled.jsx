@@ -1,12 +1,22 @@
 import React, { useEffect, useState, useContext } from "react";
 import { AppContext } from "../../../context/AppContext";
 import Loading from "../../student/Loading";
+import { useLocation } from "react-router-dom";
 
 const StudentsEnrolled = () => {
   const { backendURL, token } = useContext(AppContext);
+  const location = useLocation();
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const searchParams = new URLSearchParams(location.search);
+  const courseIdFilter = searchParams.get("courseId") || "";
+  const courseTitleFilter = searchParams.get("courseTitle") || "";
+
+  const visibleStudents = courseIdFilter
+    ? enrolledStudents.filter((student) => String(student.courseId) === String(courseIdFilter))
+    : enrolledStudents;
 
   useEffect(() => {
     const fetchEnrolledStudents = async () => {
@@ -57,8 +67,15 @@ const StudentsEnrolled = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-start justify-between md:p-8 md:pb-0 p-4 pt-8 pb-0">
-      <div className="flex flex-col items-center max-w-4xl w-full overflow-hidden rounded-md bg-white border border-gray-500/20">
+    <div className="w-full md:p-8 p-4 pt-8">
+      <div className="w-full max-w-5xl space-y-4">
+      {courseIdFilter && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          Showing enrollments for: <span className="font-semibold">{courseTitleFilter || "Selected Course"}</span>
+        </div>
+      )}
+
+      <div className="w-full overflow-hidden rounded-md bg-white border border-gray-500/20 shadow-sm">
         <table className="table-fixed md:table-auto w-full overflow-hidden pb-4">
           <thead className="text-gray-900 border-b border-gray-500/20 text-sm text-left">
             <tr>
@@ -68,14 +85,15 @@ const StudentsEnrolled = () => {
               <th className="px-4 py-3 font-semibold">Student Name</th>
               <th className="px-4 py-3 font-semibold hidden sm:table-cell">Email</th>
               <th className="px-4 py-3 font-semibold">Course Title</th>
+              <th className="px-4 py-3 font-semibold">Completion</th>
               <th className="px-4 py-3 font-semibold hidden sm:table-cell">
                 Purchase Date
               </th>
             </tr>
           </thead>
           <tbody className="text-sm text-gray-500">
-            {enrolledStudents && enrolledStudents.length > 0 ? (
-              enrolledStudents.map((student, index) => (
+            {visibleStudents && visibleStudents.length > 0 ? (
+              visibleStudents.map((student, index) => (
                 <tr key={index} className="border-b border-gray-500/20">
                   <td className="px-4 py-3 text-center hidden sm:table-cell">
                     {index + 1}
@@ -87,6 +105,19 @@ const StudentsEnrolled = () => {
                   <td className="px-4 py-3 truncate">
                     {student.courseTitle}
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700 min-w-[42px]">
+                        {student.completionPercentage ?? 0}%
+                      </span>
+                      <div className="h-2 w-20 rounded-full bg-gray-200 overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500"
+                          style={{ width: `${student.completionPercentage ?? 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     {new Date(student.purchaseDate).toLocaleDateString()}
                   </td>
@@ -94,13 +125,14 @@ const StudentsEnrolled = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="text-center py-6 text-gray-600">
-                  No students enrolled yet.
+                <td colSpan="6" className="text-center py-6 text-gray-600">
+                  {courseIdFilter ? "No students enrolled in this course yet." : "No students enrolled yet."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback } from 'react';
+import React, { useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppContext } from '../../../context/AppContext';
 import { assets } from '../../../assets/assets';
 import humanizeDuration from 'humanize-duration';
@@ -6,9 +6,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import YouTube from 'react-youtube';
 import Footer from '../../student/Footer';
 import Rating from '../../student/Rating';
-import Loading from '../../student/Loading';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import CourseDoubtsPanel from '../../../components/course/CourseDoubtsPanel';
 
 const Player = () => {
 
@@ -19,8 +19,8 @@ const Player = () => {
     backendURL,
     token,
     user,
-    lastRefreshed,
     setLastRefreshed,
+    fetchUserEnrolledCourses,
   } = useContext(AppContext);
 
   const navigate = useNavigate();
@@ -33,6 +33,7 @@ const Player = () => {
   const [initialRating, setInitialRating] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [progressFetched, setProgressFetched] = useState(false);
+  const doubtsSectionRef = useRef(null);
 
 
   // ✅ FIXED: Youtube ID extractor (supports all formats)
@@ -109,29 +110,51 @@ const Player = () => {
   }, [backendURL]);
 
 
-  // Fetch course data
-  const getCourseData = useCallback(() => {
+  const applyCourseData = useCallback((course) => {
+    if (!course) return;
 
-    if (!enrolledCourses || enrolledCourses.length === 0) return;
+    setCourseData(course);
 
-    const findCourse = enrolledCourses.find(
-      (course) => course.id === courseID
+    const userRating = course.course_ratings?.find(
+      (rating) => rating.user_id === user?.id
     );
 
-    if (findCourse) {
+    if (userRating) {
+      setInitialRating(userRating.rating);
+    }
+  }, [user]);
 
-      setCourseData(findCourse);
 
-      const userRating = findCourse.course_ratings?.find(
-        (rating) => rating.user_id === user?.id
-      );
-
-      if (userRating) {
-        setInitialRating(userRating.rating);
-      }
+  // Fetch course data with fallback when context enrollments are still empty
+  const resolveCourseData = useCallback(async () => {
+    if (!token || !courseID) {
+      setIsLoading(false);
+      return;
     }
 
-  }, [enrolledCourses, courseID, user]);
+    try {
+      let candidateCourses = Array.isArray(enrolledCourses) ? enrolledCourses : [];
+
+      if (candidateCourses.length === 0 && fetchUserEnrolledCourses) {
+        const fetchedCourses = await fetchUserEnrolledCourses();
+        if (Array.isArray(fetchedCourses)) {
+          candidateCourses = fetchedCourses;
+        }
+      }
+
+      const matchedCourse = candidateCourses.find(
+        (course) => String(course.id) === String(courseID)
+      );
+
+      if (matchedCourse) {
+        applyCourseData(matchedCourse);
+      }
+    } catch (error) {
+      console.error("Error resolving player course data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, courseID, enrolledCourses, fetchUserEnrolledCourses, applyCourseData]);
 
 
   // Fetch progress
@@ -330,21 +353,8 @@ const Player = () => {
 
   // Load course
   useEffect(() => {
-
-    if (
-      enrolledCourses &&
-      enrolledCourses.length > 0
-    ) {
-
-      getCourseData();
-
-      setIsLoading(false);
-    }
-
-  }, [
-    enrolledCourses,
-    getCourseData
-  ]);
+    resolveCourseData();
+  }, [resolveCourseData]);
 
 
   // Load progress
@@ -385,8 +395,20 @@ const Player = () => {
     );
   };
 
+  const scrollToDoubts = () => {
+    if (doubtsSectionRef.current) {
+      doubtsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
-  if (isLoading) return <Loading />;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-16 sm:w-20 aspect-square border-4 border-gray-300 border-t-4 border-t-blue-400 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
 
   if (!courseData) {
@@ -481,6 +503,12 @@ const Player = () => {
                       >
                         Close
                       </button>
+                      <button
+                        onClick={scrollToDoubts}
+                        className="px-6 py-2 rounded font-medium bg-slate-800 text-white hover:bg-slate-900 transition"
+                      >
+                        Ask Doubt
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -497,6 +525,17 @@ const Player = () => {
                   <p className="mt-4 text-gray-600">Select a lecture to start watching</p>
                 </div>
               )}
+            </div>
+
+            <div ref={doubtsSectionRef}>
+              <CourseDoubtsPanel
+                courseId={courseData.id}
+                courseTitle={courseData.course_title}
+                backendURL={backendURL}
+                token={token}
+                mode="student"
+                canAsk={true}
+              />
             </div>
 
             {/* Rating Section */}

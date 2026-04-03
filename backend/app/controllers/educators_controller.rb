@@ -6,7 +6,9 @@ class EducatorsController < ApplicationController
     :update_course,
     :delete_course,
     :create_announcement,
-    :course_announcements
+    :course_announcements,
+    :course_doubts,
+    :reply_course_doubt
   ]
 
   def dashboard_data
@@ -35,16 +37,33 @@ class EducatorsController < ApplicationController
   def get_enrolled_students_data
     courses = Course.where(educator_id: @current_user.id)
 
-    enrolled_students = UserCourse.includes(:course, :user)
+    enrolled_students = UserCourse.includes(:user, course: { chapters: :lectures })
                                   .where(course_id: courses.select(:id))
                                   .order(enrolled_at: :desc)
                                   .map do |enrollment|
+      progress = CourseProgress.find_by(
+        user_id: enrollment.user_id,
+        course_id: enrollment.course_id
+      )
+
+      total_lectures = enrollment.course.chapters.sum { |chapter| chapter.lectures.length }
+      completed_lectures = progress&.lecture_completed&.length || 0
+      completion_percentage = if total_lectures.positive?
+                                ((completed_lectures.to_f / total_lectures) * 100).round
+                              else
+                                0
+                              end
+
       {
+        courseId: enrollment.course.id,
         studentId: enrollment.user.id,
         studentName: enrollment.user.name,
         studentEmail: enrollment.user.email,
         courseTitle: enrollment.course.course_title,
-        purchaseDate: enrollment.enrolled_at
+        purchaseDate: enrollment.enrolled_at,
+        completedLectures: completed_lectures,
+        totalLectures: total_lectures,
+        completionPercentage: completion_percentage
       }
     end
 
@@ -143,6 +162,51 @@ class EducatorsController < ApplicationController
       success: true,
       announcements: announcements.map { |announcement| serialize_announcement(announcement) }
     }
+  end
+
+  def course_doubts
+    doubts = @course.course_doubts.includes(:user, :educator).order(created_at: :asc)
+
+    render json: {
+      success: true,
+      doubts: doubts.map { |doubt| serialize_course_doubt(doubt) }
+    }
+  end
+
+  def reply_course_doubt
+    doubt = @course.course_doubts.find_by(id: params[:doubt_id])
+
+    if doubt.nil?
+      return render json: {
+        success: false,
+        message: "Doubt not found"
+      }, status: :not_found
+    end
+
+    reply = params[:reply].to_s.strip
+    if reply.blank?
+      return render json: {
+        success: false,
+        message: "Reply cannot be empty"
+      }, status: :unprocessable_entity
+    end
+
+    doubt.update!(
+      reply: reply,
+      educator: @current_user,
+      replied_at: Time.current
+    )
+
+    render json: {
+      success: true,
+      message: "Reply saved successfully",
+      doubt: serialize_course_doubt(doubt.reload)
+    }
+  rescue ActiveRecord::RecordInvalid => e
+    render json: {
+      success: false,
+      message: e.record.errors.full_messages.join(', ')
+    }, status: :unprocessable_entity
   end
 
   def create_announcement

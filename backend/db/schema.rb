@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_04_03_194500) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_03_195000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -58,6 +58,19 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_03_194500) do
     t.string "chapter_title", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "course_doubts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "course_id", null: false
+    t.uuid "user_id", null: false
+    t.uuid "educator_id"
+    t.text "question", null: false
+    t.text "reply"
+    t.datetime "replied_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["course_id", "created_at"], name: "index_course_doubts_on_course_id_and_created_at"
+    t.index ["course_id", "user_id"], name: "index_course_doubts_on_course_id_and_user_id"
   end
 
   create_table "course_progresses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -135,6 +148,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_03_194500) do
   add_foreign_key "announcements", "courses", on_delete: :cascade
   add_foreign_key "announcements", "users", column: "educator_id", on_delete: :cascade
   add_foreign_key "chapters", "courses", on_delete: :cascade
+  add_foreign_key "course_doubts", "courses", on_delete: :cascade
+  add_foreign_key "course_doubts", "users", column: "educator_id", on_delete: :nullify
+  add_foreign_key "course_doubts", "users", on_delete: :cascade
   add_foreign_key "course_progresses", "courses", on_delete: :cascade
   add_foreign_key "course_progresses", "users", on_delete: :cascade
   add_foreign_key "course_ratings", "courses", on_delete: :cascade

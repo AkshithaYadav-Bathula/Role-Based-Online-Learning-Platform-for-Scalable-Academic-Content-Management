@@ -53,6 +53,76 @@ class UsersController < ApplicationController
     }
   end
 
+  def course_doubts
+    course = Course.find_by(id: params[:course_id])
+
+    if course.nil?
+      return render json: {
+        success: false,
+        message: "Course not found"
+      }, status: :not_found
+    end
+
+    is_enrolled = current_user.enrolled_courses.exists?(id: course.id)
+    is_course_educator = course.educator_id == current_user.id
+
+    unless is_enrolled || is_course_educator
+      return render json: {
+        success: false,
+        message: "Only enrolled students or the course educator can view doubts"
+      }, status: :forbidden
+    end
+
+    doubts = course.course_doubts.includes(:user, :educator).order(created_at: :asc)
+
+    render json: {
+      success: true,
+      doubts: doubts.map { |doubt| serialize_course_doubt(doubt) }
+    }
+  end
+
+  def create_course_doubt
+    course = Course.find_by(id: params[:course_id])
+    question = params[:question].to_s.strip
+
+    if course.nil?
+      return render json: {
+        success: false,
+        message: "Course not found"
+      }, status: :not_found
+    end
+
+    unless current_user.enrolled_courses.exists?(id: course.id)
+      return render json: {
+        success: false,
+        message: "You must be enrolled in this course to ask a doubt"
+      }, status: :forbidden
+    end
+
+    if question.blank?
+      return render json: {
+        success: false,
+        message: "Question cannot be empty"
+      }, status: :unprocessable_entity
+    end
+
+    doubt = course.course_doubts.create!(
+      user: current_user,
+      question: question
+    )
+
+    render json: {
+      success: true,
+      message: "Doubt posted successfully",
+      doubt: serialize_course_doubt(doubt)
+    }, status: :created
+  rescue ActiveRecord::RecordInvalid => e
+    render json: {
+      success: false,
+      message: e.record.errors.full_messages.join(', ')
+    }, status: :unprocessable_entity
+  end
+
   # Create a payment intent for the course purchase
   def create_payment_intent
     return render json: { success: false, message: "User not authenticated" }, status: :unauthorized if current_user.nil?

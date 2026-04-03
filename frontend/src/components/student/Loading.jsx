@@ -6,10 +6,10 @@ const Loading = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (params && Object.keys(params).length > 0) {
+    // Only auto-navigate for the dedicated /loading/:path route.
+    if (params?.path) {
       const timer = setTimeout(() => {
-        const firstParamValue = Object.values(params)[0]; 
-        navigate(`/${firstParamValue}`);
+        navigate(`/${params.path}`);
       }, 5000);
 
       return () => clearTimeout(timer);

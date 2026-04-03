@@ -15,7 +15,7 @@ const MyCourses = () => {
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState(null);
-  const [isPostingAnnouncementId, setIsPostingAnnouncementId] = useState(null);
+  const [openActionsCourseId, setOpenActionsCourseId] = useState(null);
 
   const [formData, setFormData] = useState({
     course_title: "",
@@ -25,6 +25,9 @@ const MyCourses = () => {
     is_published: true,
     course_content: [],
   });
+
+  const actionButtonBase =
+    "px-3 py-2 rounded-lg text-white text-sm font-medium transition-colors duration-200 disabled:cursor-not-allowed";
 
   const fetchEducatorCourses = async () => {
     try {
@@ -284,41 +287,6 @@ const MyCourses = () => {
     }
   };
 
-  const handlePostAnnouncement = async (course) => {
-    const title = window.prompt("Announcement title:");
-    if (!title || !title.trim()) return;
-
-    const message = window.prompt("Announcement message:");
-    if (!message || !message.trim()) return;
-
-    try {
-      setIsPostingAnnouncementId(course.id);
-
-      const { data } = await axios.post(
-        `${backendURL}/educators/courses/${course.id}/announcements`,
-        {
-          title: title.trim(),
-          message: message.trim(),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (data.success) {
-        toast.success("Announcement posted");
-      } else {
-        toast.error(data.message || "Failed to post announcement");
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to post announcement");
-    } finally {
-      setIsPostingAnnouncementId(null);
-    }
-  };
 
   if (loading) {
     return (
@@ -342,7 +310,10 @@ const MyCourses = () => {
 
       {courses.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {courses.map((course) => (
+          {courses.map((course) => {
+            const enrolledCount = course.enrolled_students_count || 0;
+
+            return (
             <div
               key={course.id}
               className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
@@ -375,56 +346,58 @@ const MyCourses = () => {
                   <span className="text-sm text-gray-500">{course.discount}% off</span>
                 </div>
 
-                <div className="mt-4 flex justify-between items-center">
-                  <span className="text-sm text-gray-500">
-                    {course.enrolled_students_count || 0} Enrolled
+                <div className="mt-4 flex justify-between items-center gap-2">
+                  <span className="text-sm font-medium text-gray-600">
+                    {enrolledCount} Enrolled
                   </span>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handlePostAnnouncement(course)}
-                      disabled={isPostingAnnouncementId === course.id}
-                      className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-colors duration-300"
-                    >
-                      {isPostingAnnouncementId === course.id ? "Posting..." : "Announce"}
-                    </button>
-
-                    <button
-                      onClick={() => openEditModal(course.id)}
-                      className="px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors duration-300"
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteCourse(course.id)}
-                      disabled={isDeletingId === course.id}
-                      className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:bg-red-300 transition-colors duration-300"
-                    >
-                      {isDeletingId === course.id ? "Deleting..." : "Delete"}
-                    </button>
-
-                    <Link
-                      to={`/course/${course.id}`}
-                      className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-300"
-                    >
-                      View
-                    </Link>
-                  </div>
+                  <button
+                    onClick={() =>
+                      setOpenActionsCourseId((prev) => (prev === course.id ? null : course.id))
+                    }
+                    className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
+                  >
+                    {openActionsCourseId === course.id ? "Close Actions" : "Actions"}
+                  </button>
                 </div>
 
-                {Array.isArray(course.enrolled_students) && course.enrolled_students.length > 0 && (
-                  <div className="mt-3 border-t pt-3">
-                    <p className="text-xs font-semibold text-gray-600 mb-1">Enrolled Students</p>
-                    <p className="text-xs text-gray-500">
-                      {course.enrolled_students.slice(0, 3).map((student) => student.name).join(", ")}
-                      {course.enrolled_students.length > 3 ? " ..." : ""}
-                    </p>
+                {openActionsCourseId === course.id && (
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => openEditModal(course.id)}
+                        className={`${actionButtonBase} bg-emerald-600 hover:bg-emerald-700`}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteCourse(course.id)}
+                        disabled={isDeletingId === course.id}
+                        className={`${actionButtonBase} bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300`}
+                      >
+                        {isDeletingId === course.id ? "Deleting..." : "Delete"}
+                      </button>
+
+                      <Link
+                        to={`/educator/students-enrolled?courseId=${course.id}&courseTitle=${encodeURIComponent(course.course_title)}`}
+                        className="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
+                      >
+                        Students
+                      </Link>
+
+                      <Link
+                        to={`/course/${course.id}`}
+                        className="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
+                      >
+                        View Course
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       ) : (
         <div className="text-center py-8">
@@ -688,6 +661,7 @@ const MyCourses = () => {
           </form>
         </div>
       )}
+
     </div>
   );
 };

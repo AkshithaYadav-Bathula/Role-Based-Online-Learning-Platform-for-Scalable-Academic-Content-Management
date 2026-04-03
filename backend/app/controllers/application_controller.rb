@@ -44,4 +44,21 @@ class ApplicationController < ActionController::API
   def current_user
     @current_user
   end
+
+  def serialize_course_doubt(doubt)
+    {
+      id: doubt.id,
+      course_id: doubt.course_id,
+      user_id: doubt.user_id,
+      user_name: doubt.user&.name,
+      educator_id: doubt.educator_id,
+      educator_name: doubt.educator&.name,
+      question: doubt.question,
+      reply: doubt.reply,
+      replied_at: doubt.replied_at,
+      answered: doubt.reply.present?,
+      created_at: doubt.created_at,
+      updated_at: doubt.updated_at
+    }
+  end
 end

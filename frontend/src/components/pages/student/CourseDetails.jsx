@@ -8,6 +8,7 @@ import Footer from "../../student/Footer";
 import Youtube from "react-youtube";
 import { toast } from "react-toastify";
 import axios from "axios";
+import CourseDoubtsPanel from "../../../components/course/CourseDoubtsPanel";
 
 const CourseDetails = () => {
   const { id } = useParams();
@@ -15,6 +16,11 @@ const CourseDetails = () => {
   const [courseData, setCourseData] = useState(null);
   const [isAlreadyEnrolled, setIsAlreadyEnrolled] = useState(false);
   const [playerData, setPlayerData] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementMessage, setAnnouncementMessage] = useState("");
+  const [isPostingAnnouncement, setIsPostingAnnouncement] = useState(false);
   const navigate = useNavigate();
 
   const {
@@ -132,6 +138,93 @@ const CourseDetails = () => {
     }
   }, [user, courseData]);
 
+  const isCourseEducator = user?.id === courseData?.educator?.id;
+  const canViewAnnouncements = isAlreadyEnrolled || isCourseEducator;
+
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      if (!courseData || !token || !canViewAnnouncements) {
+        setAnnouncements([]);
+        return;
+      }
+
+      try {
+        setIsLoadingAnnouncements(true);
+
+        if (isCourseEducator) {
+          const { data } = await axios.get(`${backendURL}/educators/courses/${courseData.id}/announcements`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (data.success) {
+            setAnnouncements(data.announcements || []);
+          }
+        } else {
+          const { data } = await axios.get(`${backendURL}/users/announcements`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (data.success) {
+            const filtered = (data.announcements || []).filter(
+              (announcement) => String(announcement.course_id) === String(courseData.id)
+            );
+            setAnnouncements(filtered);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+      } finally {
+        setIsLoadingAnnouncements(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, [backendURL, token, courseData, canViewAnnouncements, isCourseEducator]);
+
+  const handlePostAnnouncement = async (event) => {
+    event.preventDefault();
+
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      toast.error("Title and message are required");
+      return;
+    }
+
+    try {
+      setIsPostingAnnouncement(true);
+
+      const { data } = await axios.post(
+        `${backendURL}/educators/courses/${courseData.id}/announcements`,
+        {
+          title: announcementTitle.trim(),
+          message: announcementMessage.trim(),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (data.success) {
+        toast.success("Announcement posted");
+        setAnnouncementTitle("");
+        setAnnouncementMessage("");
+        setAnnouncements((previous) => [data.announcement, ...previous]);
+      } else {
+        toast.error(data.message || "Failed to post announcement");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to post announcement");
+    } finally {
+      setIsPostingAnnouncement(false);
+    }
+  };
+
   if (!courseData) {
     return <Loading />;
   }
@@ -140,6 +233,7 @@ const CourseDetails = () => {
   const educatorName = courseData.educator?.name || "Unknown Educator";
   const courseContent = courseData.chapters || [];
   const courseRatings = courseData.course_ratings || [];
+  const canAccessDoubts = isAlreadyEnrolled || isCourseEducator;
 
 
   const toggleSection = (index) => {
@@ -286,6 +380,80 @@ const CourseDetails = () => {
               }}
             />
           </div>
+
+          {canViewAnnouncements && (
+            <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Course updates</p>
+              <h3 className="mt-1 text-xl font-semibold text-slate-900">Announcements</h3>
+
+              {isCourseEducator && (
+                <form onSubmit={handlePostAnnouncement} className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                  <input
+                    type="text"
+                    value={announcementTitle}
+                    onChange={(event) => setAnnouncementTitle(event.target.value)}
+                    placeholder="Announcement title"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  />
+                  <textarea
+                    rows={4}
+                    value={announcementMessage}
+                    onChange={(event) => setAnnouncementMessage(event.target.value)}
+                    placeholder="Write your announcement"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={isPostingAnnouncement}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
+                    >
+                      {isPostingAnnouncement ? "Posting..." : "Post Announcement"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="mt-4 space-y-3">
+                {isLoadingAnnouncements ? (
+                  <div className="text-sm text-slate-500">Loading announcements...</div>
+                ) : announcements.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                    No announcements yet.
+                  </div>
+                ) : (
+                  announcements.slice(0, 3).map((announcement) => (
+                    <div key={announcement.id} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-900">{announcement.title}</p>
+                      <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{announcement.message}</p>
+                      <p className="mt-2 text-xs text-slate-500">
+                        {announcement.created_at ? new Date(announcement.created_at).toLocaleString() : ""}
+                      </p>
+                    </div>
+                  ))
+                )}
+
+                {!isLoadingAnnouncements && announcements.length > 3 && (
+                  <p className="text-xs text-slate-500">Showing latest 3 announcements</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {canAccessDoubts ? (
+            <CourseDoubtsPanel
+              courseId={courseData.id}
+              courseTitle={courseData.course_title}
+              backendURL={backendURL}
+              token={token}
+              mode={isCourseEducator ? "educator" : "student"}
+              canAsk={!isCourseEducator && isAlreadyEnrolled}
+            />
+          ) : (
+            <div className="mt-10 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-sm text-gray-600">
+              Enroll in this course to ask doubts and follow the discussion.
+            </div>
+          )}
         </div>
 
         {/* Right column */}
