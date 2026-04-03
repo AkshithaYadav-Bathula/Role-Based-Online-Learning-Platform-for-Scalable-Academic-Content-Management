@@ -1,7 +1,13 @@
 class EducatorsController < ApplicationController
   before_action :authenticate_user
   before_action :ensure_educator
-  before_action :set_educator_course, only: [:course_details, :update_course, :delete_course]
+  before_action :set_educator_course, only: [
+    :course_details,
+    :update_course,
+    :delete_course,
+    :create_announcement,
+    :course_announcements
+  ]
 
   def dashboard_data
     courses = Course.where(educator_id: @current_user.id).includes(user_courses: :user)
@@ -128,6 +134,44 @@ class EducatorsController < ApplicationController
         message: @course.errors.full_messages.join(', ')
       }, status: :unprocessable_entity
     end
+  end
+
+  def course_announcements
+    announcements = @course.announcements.includes(:educator).order(created_at: :desc)
+
+    render json: {
+      success: true,
+      announcements: announcements.map { |announcement| serialize_announcement(announcement) }
+    }
+  end
+
+  def create_announcement
+    title = params[:title].to_s.strip
+    message = params[:message].to_s.strip
+
+    if title.blank? || message.blank?
+      return render json: {
+        success: false,
+        message: "Title and message are required"
+      }, status: :unprocessable_entity
+    end
+
+    announcement = @course.announcements.create!(
+      educator: @current_user,
+      title: title,
+      message: message
+    )
+
+    render json: {
+      success: true,
+      message: "Announcement created successfully",
+      announcement: serialize_announcement(announcement)
+    }
+  rescue ActiveRecord::RecordInvalid => e
+    render json: {
+      success: false,
+      message: e.record.errors.full_messages.join(', ')
+    }, status: :unprocessable_entity
   end
 
   private
@@ -304,5 +348,16 @@ class EducatorsController < ApplicationController
     else
       content_payload
     end
+  end
+
+  def serialize_announcement(announcement)
+    {
+      id: announcement.id,
+      title: announcement.title,
+      message: announcement.message,
+      created_at: announcement.created_at,
+      course_id: announcement.course_id,
+      educator_name: announcement.educator&.name
+    }
   end
 end

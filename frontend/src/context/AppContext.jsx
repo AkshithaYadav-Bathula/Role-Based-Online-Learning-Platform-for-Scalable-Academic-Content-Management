@@ -77,8 +77,10 @@ export const AppContextProvider = (props) => {
             console.error("Error fetching user data:", error);
             if (error.response?.status === 401) {
                 // Clear user data on authentication error
+                localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 setUser(null);
+                setEnrolledCourses([]);
             }
             return null;
         } finally {
@@ -135,6 +137,13 @@ export const AppContextProvider = (props) => {
             }
         } catch (error) {
             console.error("Error fetching enrolled courses:", error);
+            if (error.response?.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setUser(null);
+                setEnrolledCourses([]);
+                navigate('/auth');
+            }
             return enrolledCourses; // Return current state on error
         } finally {
             setIsLoadingEnrolledCourses(false);
@@ -185,7 +194,8 @@ export const AppContextProvider = (props) => {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     setUser(null);
-                    navigate('/login');
+                    setEnrolledCourses([]);
+                    navigate('/auth');
                     toast.error('Your session has expired. Please log in again.');
                 }
                 return Promise.reject(error);

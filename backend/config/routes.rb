@@ -9,6 +9,8 @@ Rails.application.routes.draw do
   get 'educators/courses/:id', to: 'educators#course_details'
   put 'educators/courses/:id', to: 'educators#update_course'
   delete 'educators/courses/:id', to: 'educators#delete_course'
+  post 'educators/courses/:id/announcements', to: 'educators#create_announcement'
+  get 'educators/courses/:id/announcements', to: 'educators#course_announcements'
 
   # Routes for courses
   resources :courses, only: [:index, :show]
@@ -16,6 +18,7 @@ Rails.application.routes.draw do
   # Routes for users
   get 'users/get_user_data', to: 'users#get_user_data'
   get 'users/enrolled_courses', to: 'users#get_enrolled_courses'
+  get 'users/announcements', to: 'users#get_announcements'
   
   # Updated Stripe payment routes
   post 'users/create_payment_intent', to: 'users#create_payment_intent'

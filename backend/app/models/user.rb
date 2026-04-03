@@ -8,6 +8,7 @@ class User < ApplicationRecord
   has_many :course_ratings, dependent: :destroy
   has_many :purchases, dependent: :destroy
   has_many :created_courses, class_name: 'Course', foreign_key: 'educator_id', dependent: :destroy
+  has_many :announcements, class_name: 'Announcement', foreign_key: 'educator_id', dependent: :destroy
 
   validates :email, presence: true, uniqueness: true
   validates :name, presence: true

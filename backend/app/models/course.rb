@@ -8,6 +8,7 @@ class Course < ApplicationRecord
   has_many :user_courses, dependent: :delete_all
   has_many :users, through: :user_courses
   has_many :course_progresses, dependent: :destroy
+  has_many :announcements, dependent: :destroy
 
   has_one_attached :thumbnail
 

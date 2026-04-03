@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_04_08_062110) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_03_194500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -40,6 +40,16 @@ ActiveRecord::Schema[7.2].define(version: 2025_04_08_062110) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "announcements", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "course_id", null: false
+    t.uuid "educator_id", null: false
+    t.string "title", null: false
+    t.text "message", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["course_id", "created_at"], name: "index_announcements_on_course_id_and_created_at"
   end
 
   create_table "chapters", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -122,6 +132,8 @@ ActiveRecord::Schema[7.2].define(version: 2025_04_08_062110) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "announcements", "courses", on_delete: :cascade
+  add_foreign_key "announcements", "users", column: "educator_id", on_delete: :cascade
   add_foreign_key "chapters", "courses", on_delete: :cascade
   add_foreign_key "course_progresses", "courses", on_delete: :cascade
   add_foreign_key "course_progresses", "users", on_delete: :cascade

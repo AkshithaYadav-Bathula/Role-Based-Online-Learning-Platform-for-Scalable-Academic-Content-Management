@@ -15,6 +15,7 @@ const MyCourses = () => {
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState(null);
+  const [isPostingAnnouncementId, setIsPostingAnnouncementId] = useState(null);
 
   const [formData, setFormData] = useState({
     course_title: "",
@@ -283,6 +284,42 @@ const MyCourses = () => {
     }
   };
 
+  const handlePostAnnouncement = async (course) => {
+    const title = window.prompt("Announcement title:");
+    if (!title || !title.trim()) return;
+
+    const message = window.prompt("Announcement message:");
+    if (!message || !message.trim()) return;
+
+    try {
+      setIsPostingAnnouncementId(course.id);
+
+      const { data } = await axios.post(
+        `${backendURL}/educators/courses/${course.id}/announcements`,
+        {
+          title: title.trim(),
+          message: message.trim(),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (data.success) {
+        toast.success("Announcement posted");
+      } else {
+        toast.error(data.message || "Failed to post announcement");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to post announcement");
+    } finally {
+      setIsPostingAnnouncementId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -344,6 +381,14 @@ const MyCourses = () => {
                   </span>
 
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => handlePostAnnouncement(course)}
+                      disabled={isPostingAnnouncementId === course.id}
+                      className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-colors duration-300"
+                    >
+                      {isPostingAnnouncementId === course.id ? "Posting..." : "Announce"}
+                    </button>
+
                     <button
                       onClick={() => openEditModal(course.id)}
                       className="px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors duration-300"

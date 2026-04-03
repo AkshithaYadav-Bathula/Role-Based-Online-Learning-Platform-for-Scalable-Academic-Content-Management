@@ -21,6 +21,7 @@ const MyEnrollments = () => {
   
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [progressArray, setProgressArray] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [isLoadingEnrolledCourses, setIsLoadingEnrolledCourses] = useState(false);
   const isFetchingEnrolledRef = useRef(false);
@@ -120,6 +121,24 @@ const MyEnrollments = () => {
     }
   }, [enrolledCourses, calculateNoOfLectures, token, backendURL, isLoadingProgress, handleApiError]);
 
+  const loadAnnouncements = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const { data } = await axios.get(`${backendURL}/users/announcements`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (data.success) {
+        setAnnouncements(data.announcements || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch announcements", error);
+    }
+  }, [backendURL, token]);
+
   // Local fallback for calculateNoOfLectures if context function not available
   const calculateLocalNoOfLectures = useCallback((course) => {
     let count = 0;
@@ -157,6 +176,7 @@ const MyEnrollments = () => {
     const initialize = async () => {
       if (token && isMounted) {
         loadEnrolledCourses();
+        loadAnnouncements();
       }
     };
     
@@ -165,7 +185,7 @@ const MyEnrollments = () => {
     return () => {
       isMounted = false;
     };
-  }, [token, loadEnrolledCourses]);
+  }, [token, loadEnrolledCourses, loadAnnouncements]);
 
   // Fetch course progress only after enrolledCourses are loaded
   useEffect(() => {
@@ -214,6 +234,27 @@ const MyEnrollments = () => {
           {isLoading ? 'Loading...' : 'Refresh Courses'}
         </button>
       </div>
+
+      {announcements.length > 0 && (
+        <div className="mt-8 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-3">Announcements</h2>
+          <div className="space-y-3">
+            {announcements.slice(0, 8).map((item) => (
+              <div key={item.id} className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <p className="text-sm text-blue-700 mb-1">
+                  {item.course_title} • {item.educator_name || "Educator"}
+                </p>
+                <h3 className="font-semibold text-gray-900">{item.title}</h3>
+                <p className="text-gray-700 text-sm mt-1">{item.message}</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  {new Date(item.created_at).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto mt-8">
         {isLoading ? (
           <Loading/>

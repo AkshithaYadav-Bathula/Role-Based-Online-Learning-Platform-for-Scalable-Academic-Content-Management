@@ -31,6 +31,28 @@ class UsersController < ApplicationController
     }
   end
 
+  def get_announcements
+    course_ids = current_user.enrolled_courses.select(:id)
+    announcements = Announcement.includes(:course, :educator)
+                                .where(course_id: course_ids)
+                                .order(created_at: :desc)
+
+    render json: {
+      success: true,
+      announcements: announcements.map do |announcement|
+        {
+          id: announcement.id,
+          title: announcement.title,
+          message: announcement.message,
+          created_at: announcement.created_at,
+          course_id: announcement.course_id,
+          course_title: announcement.course&.course_title,
+          educator_name: announcement.educator&.name
+        }
+      end
+    }
+  end
+
   # Create a payment intent for the course purchase
   def create_payment_intent
     return render json: { success: false, message: "User not authenticated" }, status: :unauthorized if current_user.nil?

@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import Footer from './Footer';
 
 const AuthPage = () => {
+  const backendURL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,7 +19,7 @@ const AuthPage = () => {
     const data = Object.fromEntries(formData);
     
     try {
-      const response = await fetch(`http://localhost:3000/${isLogin ? 'login' : 'signup'}`, {
+      const response = await fetch(`${backendURL}/${isLogin ? 'login' : 'signup'}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
