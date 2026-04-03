@@ -7,12 +7,14 @@ import { useNavigate } from "react-router-dom";
 import humanizeDuration from "humanize-duration";
 import { AppContext } from "../../../context/AppContext";
 import { assets } from "../../../assets/assets";
+import { downloadCourseCertificate } from "../../../utils/certificate";
 
 const MyEnrollments = () => {
   const navigate = useNavigate();
   const { 
     token, 
     backendURL, 
+    user,
     calculateNoOfLectures, 
     calculateCourseTime,
     enrolledCourses: contextEnrolledCourses,
@@ -223,6 +225,22 @@ const MyEnrollments = () => {
 
   const isLoading = isLoadingEnrolledCourses || isLoadingProgress;
 
+  const handleDownloadCertificate = async (course, progress) => {
+    if (!progress || progress.completionPercentage < 100) {
+      toast.error("Complete 100% of the course to unlock certificate.");
+      return;
+    }
+
+    await downloadCourseCertificate({
+      courseTitle: course.course_title,
+      studentName: user?.name || "Student",
+      educatorName: course.educator_name || course.educator?.name || "Course Educator",
+      completionPercentage: Math.round(progress.completionPercentage),
+      logoUrl: assets.logo_dark,
+      brandName: "EDEMY",
+    });
+  };
+
   return (
     <div className="md:px-36 px-6 pt-10">
       <div className="flex justify-between items-center">
@@ -277,6 +295,7 @@ const MyEnrollments = () => {
                 <th className="px-6 py-4 text-left font-semibold">Duration</th>
                 <th className="px-6 py-4 text-left font-semibold">Completed</th>
                 <th className="px-6 py-4 text-left font-semibold">Status</th>
+                <th className="px-6 py-4 text-left font-semibold">Certificate</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -336,6 +355,21 @@ const MyEnrollments = () => {
                       }`}
                       onClick={() => navigate("/player/" + course.id)}
                     >
+
+                  <td className="px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadCertificate(course, progressArray[index])}
+                      disabled={!progressArray[index] || progressArray[index].completionPercentage < 100}
+                      className={`px-4 py-2 rounded-sm text-sm font-semibold text-white transition ${
+                        progressArray[index] && progressArray[index].completionPercentage >= 100
+                          ? "bg-slate-800 hover:bg-slate-900"
+                          : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      Download
+                    </button>
+                  </td>
                       {progressArray[index] &&
                       progressArray[index].completionPercentage === 100
                         ? "Completed"

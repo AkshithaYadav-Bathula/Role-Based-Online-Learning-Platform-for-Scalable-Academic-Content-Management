@@ -9,6 +9,7 @@ import Rating from '../../student/Rating';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import CourseDoubtsPanel from '../../../components/course/CourseDoubtsPanel';
+import { downloadCourseCertificate } from '../../../utils/certificate';
 
 const Player = () => {
 
@@ -432,6 +433,47 @@ const Player = () => {
     fetchCourseAnnouncements();
   }, [fetchCourseAnnouncements]);
 
+  const totalLectures = (courseData?.chapters || []).reduce(
+    (count, chapter) => count + (chapter.lectures?.length || 0),
+    0
+  );
+
+  const completedLectureIds = new Set(
+    (progressData?.lecture_completed || []).map((lectureId) => String(lectureId))
+  );
+
+  const completedLectures = (courseData?.chapters || []).reduce(
+    (count, chapter) => {
+      const chapterCompleted = (chapter.lectures || []).filter((lecture) => {
+        const lectureId = String(lecture.lecture_id || lecture.id);
+        return completedLectureIds.has(lectureId);
+      }).length;
+      return count + chapterCompleted;
+    },
+    0
+  );
+
+  const completionPercentage =
+    totalLectures > 0 ? Math.round((completedLectures / totalLectures) * 100) : 0;
+
+  const isCertificateEligible = totalLectures > 0 && completionPercentage >= 100;
+
+  const handleDownloadCertificate = async () => {
+    if (!isCertificateEligible || !courseData || !user) {
+      toast.error('Certificate will unlock after 100% completion.');
+      return;
+    }
+
+    await downloadCourseCertificate({
+      courseTitle: courseData.course_title,
+      studentName: user.name,
+      educatorName: courseData.educator_name || courseData.educator?.name || 'Course Educator',
+      completionPercentage,
+      logoUrl: assets.logo_dark,
+      brandName: 'EDEMY',
+    });
+  };
+
 
   if (isLoading) {
     return (
@@ -589,6 +631,44 @@ const Player = () => {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 shadow-xl">
+              <div className="flex flex-col gap-6 px-6 py-6 text-white md:flex-row md:items-center md:justify-between md:px-8">
+                <div className="max-w-xl">
+                  <div className="mb-3 flex items-center gap-3">
+                    <img src={assets.logo_dark} alt="Edemy" className="h-6 w-auto rounded bg-white px-2 py-1" />
+                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold tracking-wide">PRO CERTIFICATE</span>
+                  </div>
+                  <h3 className="text-2xl font-bold">Course Completion Certificate</h3>
+                  <p className="mt-2 text-sm text-blue-100">
+                    Unlock your horizontal Edemy-branded certificate when your course progress reaches 100%.
+                  </p>
+                  <p className="mt-3 text-sm text-blue-100">
+                    Progress: {completedLectures}/{totalLectures} lectures ({completionPercentage}%)
+                  </p>
+                </div>
+
+                <div className="min-w-[220px] rounded-xl bg-white/10 p-4 backdrop-blur">
+                  <button
+                    type="button"
+                    onClick={handleDownloadCertificate}
+                    disabled={!isCertificateEligible}
+                    className={`w-full rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                      isCertificateEligible
+                        ? 'bg-emerald-400 text-slate-900 hover:bg-emerald-300'
+                        : 'cursor-not-allowed bg-slate-400 text-slate-100'
+                    }`}
+                  >
+                    Download Certificate
+                  </button>
+                  {!isCertificateEligible && (
+                    <p className="mt-2 text-xs text-blue-100">
+                      Complete all lectures to unlock.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Rating Section */}
