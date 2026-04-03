@@ -33,6 +33,8 @@ const Player = () => {
   const [initialRating, setInitialRating] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [progressFetched, setProgressFetched] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
   const doubtsSectionRef = useRef(null);
 
 
@@ -401,6 +403,35 @@ const Player = () => {
     }
   };
 
+  const fetchCourseAnnouncements = useCallback(async () => {
+    if (!token || !courseID) return;
+
+    try {
+      setIsLoadingAnnouncements(true);
+
+      const { data } = await axios.get(createApiUrl('users/announcements'), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (data.success) {
+        const filteredAnnouncements = (data.announcements || []).filter(
+          (announcement) => String(announcement.course_id) === String(courseID)
+        );
+        setAnnouncements(filteredAnnouncements);
+      }
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
+    } finally {
+      setIsLoadingAnnouncements(false);
+    }
+  }, [createApiUrl, token, courseID]);
+
+  useEffect(() => {
+    fetchCourseAnnouncements();
+  }, [fetchCourseAnnouncements]);
+
 
   if (isLoading) {
     return (
@@ -536,6 +567,28 @@ const Player = () => {
                 mode="student"
                 canAsk={true}
               />
+            </div>
+
+            <div className="bg-white rounded-lg shadow-lg p-6 mt-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Announcements</h3>
+
+              {isLoadingAnnouncements ? (
+                <p className="text-sm text-gray-500">Loading announcements...</p>
+              ) : announcements.length === 0 ? (
+                <p className="text-sm text-gray-500">No announcements for this course yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {announcements.slice(0, 5).map((announcement) => (
+                    <div key={announcement.id} className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                      <p className="text-sm font-semibold text-gray-900">{announcement.title}</p>
+                      <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{announcement.message}</p>
+                      <p className="mt-2 text-xs text-gray-500">
+                        {announcement.created_at ? new Date(announcement.created_at).toLocaleString() : ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Rating Section */}

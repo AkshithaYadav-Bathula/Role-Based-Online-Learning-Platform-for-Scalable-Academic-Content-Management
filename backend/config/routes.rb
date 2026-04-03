@@ -21,6 +21,7 @@ Rails.application.routes.draw do
   get 'users/announcements', to: 'users#get_announcements'
   get 'users/course_doubts', to: 'users#course_doubts'
   post 'users/course_doubts', to: 'users#create_course_doubt'
+  post 'users/course_doubts/:id/upvote', to: 'users#toggle_course_doubt_upvote'
   
   # Updated Stripe payment routes
   post 'users/create_payment_intent', to: 'users#create_payment_intent'
@@ -32,6 +33,9 @@ Rails.application.routes.draw do
   get 'users/get_course_progress', to: 'users#get_course_progress'
   post 'users/add_rating', to: 'users#add_rating'
   post 'users/update_role', to: 'users#update_role'
+  get 'users/notifications', to: 'users#notifications'
+  post 'users/notifications/:id/read', to: 'users#mark_notification_read'
+  post 'users/notifications/read_all', to: 'users#mark_all_notifications_read'
 
   get 'educators/courses/:id/doubts', to: 'educators#course_doubts'
   post 'educators/courses/:id/doubts/:doubt_id/reply', to: 'educators#reply_course_doubt'

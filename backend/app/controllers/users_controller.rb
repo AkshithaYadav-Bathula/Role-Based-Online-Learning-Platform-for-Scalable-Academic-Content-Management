@@ -73,11 +73,11 @@ class UsersController < ApplicationController
       }, status: :forbidden
     end
 
-    doubts = course.course_doubts.includes(:user, :educator).order(created_at: :asc)
+    doubts = course.course_doubts.includes(:user, :educator, :course_doubt_votes).order(created_at: :asc)
 
     render json: {
       success: true,
-      doubts: doubts.map { |doubt| serialize_course_doubt(doubt) }
+      doubts: doubts.map { |doubt| serialize_course_doubt(doubt, current_user) }
     }
   end
 
@@ -111,16 +111,111 @@ class UsersController < ApplicationController
       question: question
     )
 
+    if course.educator_id.present? && course.educator_id != current_user.id
+      Notification.create!(
+        user_id: course.educator_id,
+        actor_id: current_user.id,
+        course_id: course.id,
+        course_doubt_id: doubt.id,
+        kind: "new_doubt",
+        title: "New doubt in #{course.course_title}",
+        message: "#{current_user.name} asked a new doubt in your course."
+      )
+    end
+
     render json: {
       success: true,
       message: "Doubt posted successfully",
-      doubt: serialize_course_doubt(doubt)
+      doubt: serialize_course_doubt(doubt, current_user)
     }, status: :created
   rescue ActiveRecord::RecordInvalid => e
     render json: {
       success: false,
       message: e.record.errors.full_messages.join(', ')
     }, status: :unprocessable_entity
+  end
+
+  def toggle_course_doubt_upvote
+    doubt = CourseDoubt.includes(:course, :course_doubt_votes).find_by(id: params[:id])
+
+    if doubt.nil?
+      return render json: {
+        success: false,
+        message: "Doubt not found"
+      }, status: :not_found
+    end
+
+    course = doubt.course
+    is_enrolled = current_user.enrolled_courses.exists?(id: course.id)
+    is_course_educator = course.educator_id == current_user.id
+
+    unless is_enrolled || is_course_educator
+      return render json: {
+        success: false,
+        message: "You are not allowed to upvote this doubt"
+      }, status: :forbidden
+    end
+
+    existing_vote = current_user.course_doubt_votes.find_by(course_doubt_id: doubt.id)
+
+    if existing_vote
+      existing_vote.destroy!
+      upvoted = false
+    else
+      current_user.course_doubt_votes.create!(course_doubt: doubt)
+      upvoted = true
+    end
+
+    render json: {
+      success: true,
+      upvoted: upvoted,
+      upvotes_count: doubt.course_doubt_votes.reload.count
+    }
+  rescue ActiveRecord::RecordInvalid => e
+    render json: {
+      success: false,
+      message: e.record.errors.full_messages.join(', ')
+    }, status: :unprocessable_entity
+  end
+
+  def notifications
+    notifications = current_user.notifications.includes(:actor, :course)
+                                .order(created_at: :desc)
+                                .limit(25)
+
+    render json: {
+      success: true,
+      unread_count: current_user.notifications.unread.count,
+      notifications: notifications.map { |notification| serialize_notification(notification) }
+    }
+  end
+
+  def mark_notification_read
+    notification = current_user.notifications.find_by(id: params[:id])
+
+    if notification.nil?
+      return render json: {
+        success: false,
+        message: "Notification not found"
+      }, status: :not_found
+    end
+
+    notification.update!(read_at: Time.current) if notification.read_at.nil?
+
+    render json: {
+      success: true,
+      unread_count: current_user.notifications.unread.count,
+      notification: serialize_notification(notification)
+    }
+  end
+
+  def mark_all_notifications_read
+    current_user.notifications.unread.update_all(read_at: Time.current)
+
+    render json: {
+      success: true,
+      unread_count: 0
+    }
   end
 
   # Create a payment intent for the course purchase

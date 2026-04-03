@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import Footer from './Footer';
+import { AppContext } from '../../context/AppContext';
 
 const AuthPage = () => {
   const backendURL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+  const { setUser, setIsEducator, setLastRefreshed } = useContext(AppContext);
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,6 +41,9 @@ const AuthPage = () => {
 
       localStorage.setItem('token', result.token);
       localStorage.setItem('user', JSON.stringify(result.user));
+      setUser(result.user);
+      setIsEducator(result.user?.role === 'educator');
+      setLastRefreshed(Date.now());
       navigate('/');
     } catch (err) {
       setError(err.message);

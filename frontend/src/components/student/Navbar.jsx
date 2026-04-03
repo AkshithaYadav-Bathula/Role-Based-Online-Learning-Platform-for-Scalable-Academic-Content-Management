@@ -1,26 +1,65 @@
-import React, { useContext } from "react";
+import React, { useContext, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { assets } from "../../assets/assets";
 import { AppContext } from "../../context/AppContext";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { Bell } from "lucide-react";
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isEducator, token, backendURL, setIsEducator } = useContext(AppContext);
+  const {
+    isEducator,
+    token,
+    backendURL,
+    setIsEducator,
+    setUser,
+    setEnrolledCourses,
+    setLastRefreshed,
+    notifications,
+    unreadNotificationsCount,
+    markNotificationRead,
+    markAllNotificationsRead,
+  } = useContext(AppContext);
+  const [showNotifications, setShowNotifications] = useState(false);
   const isCourseListPage = location.pathname.includes("/course-list");
   const isLoggedIn = localStorage.getItem("token") !== null;
   console.log( `${backendURL}/users/update_role`)
 
+  const latestNotifications = useMemo(() => (notifications || []).slice(0, 8), [notifications]);
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    setUser(null);
+    setEnrolledCourses([]);
+    setIsEducator(false);
+    setLastRefreshed(Date.now());
     navigate("/");
   };
 
   const handleAuthClick = () => {
     navigate("/auth");
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification) return;
+
+    if (!notification.is_read) {
+      await markNotificationRead(notification.id);
+    }
+
+    setShowNotifications(false);
+
+    const courseId = notification.course_id;
+    const isUuid = typeof courseId === "string" && /^[0-9a-fA-F-]{36}$/.test(courseId);
+
+    if (isUuid) {
+      navigate(`/course/${courseId}`);
+    } else {
+      toast.error("Course link is unavailable for this notification.");
+    }
   };
 
   const becomeEducator = async () => {
@@ -82,6 +121,64 @@ const Navbar = () => {
 
         {isLoggedIn ? (
           <div className="flex items-center gap-4">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowNotifications((prev) => !prev)}
+                className="relative h-10 w-10 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                title="Notifications"
+              >
+                <Bell className="w-5 h-5 mx-auto" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                    {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-xl z-50">
+                  <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+                    <p className="text-sm font-semibold text-gray-800">Notifications</p>
+                    {unreadNotificationsCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={markAllNotificationsRead}
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto">
+                    {latestNotifications.length === 0 ? (
+                      <p className="px-3 py-4 text-sm text-gray-500">No notifications yet.</p>
+                    ) : (
+                      latestNotifications.map((notification) => (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          onClick={() => handleNotificationClick(notification)}
+                          className={`w-full px-3 py-2 text-left border-b border-gray-100 hover:bg-gray-50 ${
+                            notification.is_read ? "bg-white" : "bg-blue-50"
+                          }`}
+                        >
+                          <p className="text-sm font-medium text-gray-800">{notification.title}</p>
+                          <p className="mt-0.5 text-xs text-gray-600 line-clamp-2">{notification.message}</p>
+                          <p className="mt-1 text-[11px] text-gray-400">
+                            {notification.created_at
+                              ? new Date(notification.created_at).toLocaleString()
+                              : ""}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <span className="text-gray-600">
               {JSON.parse(localStorage.getItem("user"))?.name}
             </span>
@@ -117,6 +214,18 @@ const Navbar = () => {
 
         {isLoggedIn ? (
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowNotifications((prev) => !prev)}
+              className="relative h-8 w-8 rounded-full border border-gray-300 bg-white text-xs text-gray-700"
+            >
+              <Bell className="w-4 h-4 mx-auto" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[15px] rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white">
+                  {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                </span>
+              )}
+            </button>
             <span className="text-sm text-gray-600">
               {JSON.parse(localStorage.getItem("user"))?.name}
             </span>
@@ -133,6 +242,43 @@ const Navbar = () => {
           </button>
         )}
       </div>
+
+      {showNotifications && (
+        <div className="md:hidden absolute top-16 right-3 w-80 rounded-lg border border-gray-200 bg-white shadow-xl z-50">
+          <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+            <p className="text-sm font-semibold text-gray-800">Notifications</p>
+            {unreadNotificationsCount > 0 && (
+              <button
+                type="button"
+                onClick={markAllNotificationsRead}
+                className="text-xs text-blue-600 hover:text-blue-700"
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {latestNotifications.length === 0 ? (
+              <p className="px-3 py-4 text-sm text-gray-500">No notifications yet.</p>
+            ) : (
+              latestNotifications.map((notification) => (
+                <button
+                  key={notification.id}
+                  type="button"
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`w-full px-3 py-2 text-left border-b border-gray-100 hover:bg-gray-50 ${
+                    notification.is_read ? "bg-white" : "bg-blue-50"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-800">{notification.title}</p>
+                  <p className="mt-0.5 text-xs text-gray-600 line-clamp-2">{notification.message}</p>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

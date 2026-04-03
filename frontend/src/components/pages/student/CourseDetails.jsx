@@ -138,7 +138,8 @@ const CourseDetails = () => {
     }
   }, [user, courseData]);
 
-  const isCourseEducator = user?.id === courseData?.educator?.id;
+  const courseEducatorId = courseData?.educator_id || courseData?.educator?.id;
+  const isCourseEducator = !!user && !!courseEducatorId && String(user.id) === String(courseEducatorId);
   const canViewAnnouncements = isAlreadyEnrolled || isCourseEducator;
 
   useEffect(() => {
@@ -556,12 +557,18 @@ const CourseDetails = () => {
             <button
               onClick={initiatePayment}
               className={`md:mt-6 mt-4 w-full py-3 rounded font-medium transition-colors ${
-                isAlreadyEnrolled 
-                  ? "bg-green-600 text-white hover:bg-green-700" 
-                  : "bg-blue-600 text-white hover:bg-blue-700"
+                isCourseEducator
+                  ? "bg-slate-700 text-white cursor-default"
+                  : isAlreadyEnrolled
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
             >
-              {isAlreadyEnrolled ? "Already Enrolled" : "Enroll Now"}
+              {isCourseEducator
+                ? "You Created This Course"
+                : isAlreadyEnrolled
+                  ? "Already Enrolled"
+                  : "Enroll Now"}
             </button>
 
             <div className="pt-6">

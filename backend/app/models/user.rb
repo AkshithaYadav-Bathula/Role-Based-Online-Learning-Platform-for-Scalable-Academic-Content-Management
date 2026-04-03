@@ -10,6 +10,9 @@ class User < ApplicationRecord
   has_many :created_courses, class_name: 'Course', foreign_key: 'educator_id', dependent: :destroy
   has_many :announcements, class_name: 'Announcement', foreign_key: 'educator_id', dependent: :destroy
   has_many :course_doubts, dependent: :destroy
+  has_many :course_doubt_votes, dependent: :destroy
+  has_many :notifications, dependent: :destroy
+  has_many :sent_notifications, class_name: 'Notification', foreign_key: 'actor_id', dependent: :nullify
 
   before_destroy :delete_user_courses_records
 

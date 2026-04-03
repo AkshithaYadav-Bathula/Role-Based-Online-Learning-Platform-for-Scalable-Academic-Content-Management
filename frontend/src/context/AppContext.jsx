@@ -13,6 +13,8 @@ export const AppContextProvider = (props) => {
     const [allCourses, setAllCourses] = useState([]);
     const [isEducator, setIsEducator] = useState(false);
     const [enrolledCourses, setEnrolledCourses] = useState([]);
+    const [notifications, setNotifications] = useState([]);
+    const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
     const [lastRefreshed, setLastRefreshed] = useState(null); // Initialize as null
     const [dataLoaded, setDataLoaded] = useState(false);
     const [isLoadingEnrolledCourses, setIsLoadingEnrolledCourses] = useState(false);
@@ -34,6 +36,7 @@ export const AppContextProvider = (props) => {
     const refreshUserDataRequestRef = useRef(false);
     const fetchEnrolledCoursesRequestRef = useRef(false);
     const fetchAllCoursesRequestRef = useRef(false);
+    const fetchNotificationsRequestRef = useRef(false);
 
     // Create an axios instance with custom config
     const api = axios.create({
@@ -151,6 +154,81 @@ export const AppContextProvider = (props) => {
         }
     }, [backendURL, token, user, isLoadingEnrolledCourses, enrolledCourses]);
 
+    const fetchNotifications = useCallback(async () => {
+        if (!token || !user || fetchNotificationsRequestRef.current) return;
+
+        try {
+            fetchNotificationsRequestRef.current = true;
+
+            const { data } = await axios.get(`${backendURL}/users/notifications`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (data.success) {
+                setNotifications(data.notifications || []);
+                setUnreadNotificationsCount(data.unread_count || 0);
+            }
+        } catch (error) {
+            console.error("Error fetching notifications:", error);
+        } finally {
+            fetchNotificationsRequestRef.current = false;
+        }
+    }, [backendURL, token, user]);
+
+    const markNotificationRead = useCallback(async (notificationId) => {
+        if (!token || !notificationId) return;
+
+        try {
+            const { data } = await axios.post(
+                `${backendURL}/users/notifications/${notificationId}/read`,
+                {},
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+
+            if (data.success) {
+                setUnreadNotificationsCount(data.unread_count || 0);
+                setNotifications((prev) =>
+                    prev.map((notification) =>
+                        notification.id === notificationId
+                            ? { ...notification, is_read: true, read_at: new Date().toISOString() }
+                            : notification
+                    )
+                );
+            }
+        } catch (error) {
+            console.error("Error marking notification read:", error);
+        }
+    }, [backendURL, token]);
+
+    const markAllNotificationsRead = useCallback(async () => {
+        if (!token) return;
+
+        try {
+            const { data } = await axios.post(
+                `${backendURL}/users/notifications/read_all`,
+                {},
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+
+            if (data.success) {
+                setUnreadNotificationsCount(0);
+                setNotifications((prev) =>
+                    prev.map((notification) => ({
+                        ...notification,
+                        is_read: true,
+                        read_at: notification.read_at || new Date().toISOString(),
+                    }))
+                );
+            }
+        } catch (error) {
+            console.error("Error marking all notifications read:", error);
+        }
+    }, [backendURL, token]);
+
     // Load data on component mount - ONE TIME ONLY
   useEffect(() => {
     let isMounted = true;
@@ -181,8 +259,24 @@ export const AppContextProvider = (props) => {
         if (lastRefreshed && token) {
             refreshUserData();
             fetchUserEnrolledCourses();
+            fetchNotifications();
         }
-    }, [lastRefreshed, token, fetchUserEnrolledCourses, refreshUserData]);
+    }, [lastRefreshed, token, fetchUserEnrolledCourses, refreshUserData, fetchNotifications]);
+
+    useEffect(() => {
+        if (!token || !user) {
+            setNotifications([]);
+            setUnreadNotificationsCount(0);
+            return;
+        }
+
+        fetchNotifications();
+        const timer = setInterval(() => {
+            fetchNotifications();
+        }, 25000);
+
+        return () => clearInterval(timer);
+    }, [token, user, fetchNotifications]);
     
     // Set up interceptors for API response error handling
     useEffect(() => {
@@ -281,6 +375,11 @@ export const AppContextProvider = (props) => {
         enrolledCourses,
         setEnrolledCourses,
         fetchUserEnrolledCourses,
+        notifications,
+        unreadNotificationsCount,
+        fetchNotifications,
+        markNotificationRead,
+        markAllNotificationsRead,
         backendURL,
         token,
         user,

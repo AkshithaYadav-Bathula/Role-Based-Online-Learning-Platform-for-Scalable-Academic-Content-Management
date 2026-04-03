@@ -45,7 +45,10 @@ class ApplicationController < ActionController::API
     @current_user
   end
 
-  def serialize_course_doubt(doubt)
+  def serialize_course_doubt(doubt, viewer = nil)
+    votes = doubt.course_doubt_votes
+    viewer_id = viewer&.id
+
     {
       id: doubt.id,
       course_id: doubt.course_id,
@@ -57,8 +60,26 @@ class ApplicationController < ActionController::API
       reply: doubt.reply,
       replied_at: doubt.replied_at,
       answered: doubt.reply.present?,
+      upvotes_count: votes.size,
+      upvoted_by_current_user: viewer_id.present? ? votes.any? { |vote| vote.user_id == viewer_id } : false,
       created_at: doubt.created_at,
       updated_at: doubt.updated_at
+    }
+  end
+
+  def serialize_notification(notification)
+    {
+      id: notification.id,
+      kind: notification.kind,
+      title: notification.title,
+      message: notification.message,
+      read_at: notification.read_at,
+      is_read: notification.read_at.present?,
+      course_id: notification.course_id,
+      course_title: notification.course&.course_title,
+      course_doubt_id: notification.course_doubt_id,
+      actor_name: notification.actor&.name,
+      created_at: notification.created_at
     }
   end
 end

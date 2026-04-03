@@ -17,6 +17,7 @@ const CourseDoubtsPanel = ({
   const [loading, setLoading] = useState(false);
   const [submittingQuestion, setSubmittingQuestion] = useState(false);
   const [replyingId, setReplyingId] = useState(null);
+  const [votingId, setVotingId] = useState(null);
 
   const fetchDoubts = async () => {
     if (!courseId || !token) {
@@ -137,6 +138,43 @@ const CourseDoubtsPanel = ({
     }
   };
 
+  const handleUpvoteToggle = async (doubtId) => {
+    try {
+      setVotingId(doubtId);
+
+      const { data } = await axios.post(
+        `${backendURL}/users/course_doubts/${doubtId}/upvote`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (data.success) {
+        setDoubts((previous) =>
+          previous.map((doubt) =>
+            doubt.id === doubtId
+              ? {
+                  ...doubt,
+                  upvotes_count: data.upvotes_count,
+                  upvoted_by_current_user: data.upvoted,
+                }
+              : doubt
+          )
+        );
+      } else {
+        toast.error(data.message || "Failed to update upvote");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update upvote");
+    } finally {
+      setVotingId(null);
+    }
+  };
+
   return (
     <section className={`mt-10 rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>
       <div className="border-b border-slate-200 px-5 py-4">
@@ -207,6 +245,22 @@ const CourseDoubtsPanel = ({
                 </div>
 
                 <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{doubt.question}</p>
+
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleUpvoteToggle(doubt.id)}
+                    disabled={votingId === doubt.id}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      doubt.upvoted_by_current_user
+                        ? "border-blue-300 bg-blue-100 text-blue-700"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                  >
+                    {votingId === doubt.id ? "Updating..." : doubt.upvoted_by_current_user ? "Upvoted" : "Upvote"}
+                  </button>
+                  <span className="text-xs text-slate-500">{doubt.upvotes_count || 0} upvotes</span>
+                </div>
 
                 {doubt.reply ? (
                   <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3">

@@ -165,11 +165,11 @@ class EducatorsController < ApplicationController
   end
 
   def course_doubts
-    doubts = @course.course_doubts.includes(:user, :educator).order(created_at: :asc)
+    doubts = @course.course_doubts.includes(:user, :educator, :course_doubt_votes).order(created_at: :asc)
 
     render json: {
       success: true,
-      doubts: doubts.map { |doubt| serialize_course_doubt(doubt) }
+      doubts: doubts.map { |doubt| serialize_course_doubt(doubt, @current_user) }
     }
   end
 
@@ -197,10 +197,22 @@ class EducatorsController < ApplicationController
       replied_at: Time.current
     )
 
+    if doubt.user_id.present? && doubt.user_id != @current_user.id
+      Notification.create!(
+        user_id: doubt.user_id,
+        actor_id: @current_user.id,
+        course_id: @course.id,
+        course_doubt_id: doubt.id,
+        kind: "doubt_replied",
+        title: "Reply to your doubt in #{@course.course_title}",
+        message: "#{@current_user.name} replied to your doubt."
+      )
+    end
+
     render json: {
       success: true,
       message: "Reply saved successfully",
-      doubt: serialize_course_doubt(doubt.reload)
+      doubt: serialize_course_doubt(doubt.reload, @current_user)
     }
   rescue ActiveRecord::RecordInvalid => e
     render json: {
@@ -225,6 +237,19 @@ class EducatorsController < ApplicationController
       title: title,
       message: message
     )
+
+    recipient_ids = @course.user_courses.pluck(:user_id).uniq.reject { |id| id == @current_user.id }
+
+    recipient_ids.each do |recipient_id|
+      Notification.create!(
+        user_id: recipient_id,
+        actor_id: @current_user.id,
+        course_id: @course.id,
+        kind: "announcement_posted",
+        title: "New announcement in #{@course.course_title}",
+        message: title
+      )
+    end
 
     render json: {
       success: true,
