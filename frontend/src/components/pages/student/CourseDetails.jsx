@@ -29,6 +29,63 @@ const CourseDetails = () => {
     user,
   } = useContext(AppContext);
 
+  // ✅ YouTube ID extractor (supports all formats)
+  const getYoutubeId = (url) => {
+    if (!url) {
+      console.warn("No URL provided to getYoutubeId");
+      return null;
+    }
+
+    // If it's already just an ID (11 chars alphanumeric), return it
+    if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+      console.log("URL is already a video ID:", url);
+      return url;
+    }
+
+    try {
+      // Handle youtu.be format
+      const youtuBeMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      if (youtuBeMatch) {
+        console.log("Extracted from youtu.be:", youtuBeMatch[1]);
+        return youtuBeMatch[1];
+      }
+
+      // Handle youtube.com/watch?v=VIDEO_ID format
+      const watchMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/);
+      if (watchMatch) {
+        console.log("Extracted from youtube.com/watch:", watchMatch[1]);
+        return watchMatch[1];
+      }
+
+      // Handle youtube.com/embed/VIDEO_ID format
+      const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+      if (embedMatch) {
+        console.log("Extracted from youtube.com/embed:", embedMatch[1]);
+        return embedMatch[1];
+      }
+
+      // Handle youtube.com/v/VIDEO_ID format
+      const vMatch = url.match(/youtube\.com\/v\/([a-zA-Z0-9_-]{11})/);
+      if (vMatch) {
+        console.log("Extracted from youtube.com/v:", vMatch[1]);
+        return vMatch[1];
+      }
+
+      // Handle youtube.com/shorts/VIDEO_ID format
+      const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
+      if (shortsMatch) {
+        console.log("Extracted from youtube.com/shorts:", shortsMatch[1]);
+        return shortsMatch[1];
+      }
+
+      console.warn("Could not extract video ID from URL:", url);
+      return null;
+    } catch (error) {
+      console.error("Error extracting YouTube ID:", error);
+      return null;
+    }
+  };
+
   const fetchCourseData = async () => {
     try {
       const { data } = await axios.get(`${backendURL}/courses/${id}`, {
@@ -189,12 +246,15 @@ const CourseDetails = () => {
                             <div className="flex gap-2">
                               {lecture.is_preview_free && lecture.lecture_url && (
                                 <p
-                                  onClick={() =>
-                                    setPlayerData({
-                                      videoId: lecture.lecture_url.split("/").pop(),
-                                    })
-                                  }
-                                  className="text-blue-600 cursor-pointer"
+                                  onClick={() => {
+                                    const videoId = getYoutubeId(lecture.lecture_url);
+                                    if (videoId) {
+                                      setPlayerData({ videoId });
+                                    } else {
+                                      toast.error("Invalid video URL");
+                                    }
+                                  }}
+                                  className="text-blue-600 cursor-pointer hover:underline"
                                 >
                                   Preview
                                 </p>
@@ -231,15 +291,36 @@ const CourseDetails = () => {
         {/* Right column */}
         <div className="md:w-1/3 w-full">
           {playerData ? (
-            <Youtube
-              videoId={playerData.videoId}
-              options={{
-                playerVars: {
-                  autoplay: 1,
-                },
-              }}
-              iframeClassName="w-full rounded-lg aspect-video shadow-md"
-            />
+            <div className="rounded-lg shadow-md overflow-hidden">
+              {playerData.videoId ? (
+                <Youtube
+                  videoId={playerData.videoId}
+                  options={{
+                    playerVars: {
+                      autoplay: 1,
+                    },
+                  }}
+                  iframeClassName="w-full rounded-lg aspect-video shadow-md"
+                  onError={(error) => {
+                    console.error("YouTube error:", error);
+                    toast.error("Error loading preview video");
+                    setPlayerData(null);
+                  }}
+                />
+              ) : (
+                <div className="w-full aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
+                  <div className="text-center text-gray-600">
+                    <p className="font-semibold">Invalid video URL</p>
+                    <button
+                      onClick={() => setPlayerData(null)}
+                      className="mt-2 text-blue-600 hover:underline"
+                    >
+                      Back
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <img
               src={courseData.thumbnail_url}

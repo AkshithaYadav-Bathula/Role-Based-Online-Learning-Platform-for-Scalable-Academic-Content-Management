@@ -11,9 +11,11 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 
 const Player = () => {
+
   const {
     enrolledCourses,
     calculateChapterTime,
+    calculateCourseTime,
     backendURL,
     token,
     user,
@@ -23,6 +25,7 @@ const Player = () => {
 
   const navigate = useNavigate();
   const { courseID } = useParams();
+
   const [openSections, setOpenSections] = useState({});
   const [courseData, setCourseData] = useState(null);
   const [playerData, setPlayerData] = useState(null);
@@ -31,286 +34,569 @@ const Player = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [progressFetched, setProgressFetched] = useState(false);
 
-  // Helper function to create API URLs consistently
+
+  // ✅ FIXED: Youtube ID extractor (supports all formats)
+  const getYoutubeId = (url) => {
+    if (!url) {
+      console.warn("No URL provided to getYoutubeId");
+      return null;
+    }
+
+    // If it's already just an ID (11 chars alphanumeric), return it
+    if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+      console.log("URL is already a video ID:", url);
+      return url;
+    }
+
+    try {
+      // Handle youtu.be format: https://youtu.be/VIDEO_ID or youtu.be/VIDEO_ID?t=10
+      const youtuBeMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      if (youtuBeMatch) {
+        console.log("Extracted from youtu.be:", youtuBeMatch[1]);
+        return youtuBeMatch[1];
+      }
+
+      // Handle youtube.com/watch?v=VIDEO_ID format with or without query params
+      const watchMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/);
+      if (watchMatch) {
+        console.log("Extracted from youtube.com/watch:", watchMatch[1]);
+        return watchMatch[1];
+      }
+
+      // Handle youtube.com/embed/VIDEO_ID format
+      const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+      if (embedMatch) {
+        console.log("Extracted from youtube.com/embed:", embedMatch[1]);
+        return embedMatch[1];
+      }
+
+      // Handle youtube.com/v/VIDEO_ID format
+      const vMatch = url.match(/youtube\.com\/v\/([a-zA-Z0-9_-]{11})/);
+      if (vMatch) {
+        console.log("Extracted from youtube.com/v:", vMatch[1]);
+        return vMatch[1];
+      }
+
+      // Handle youtube.com/shorts/VIDEO_ID format
+      const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
+      if (shortsMatch) {
+        console.log("Extracted from youtube.com/shorts:", shortsMatch[1]);
+        return shortsMatch[1];
+      }
+
+      console.warn("Could not extract video ID from URL:", url);
+      return null;
+    } catch (error) {
+      console.error("Error extracting YouTube ID:", error);
+      return null;
+    }
+  };
+
+
+  // API URL builder
   const createApiUrl = useCallback((endpoint) => {
-    // Ensure backendURL doesn't have a trailing slash and endpoint has a leading slash
-    const baseUrl = backendURL.endsWith('/') ? backendURL.slice(0, -1) : backendURL;
-    const apiPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+    const baseUrl = backendURL.endsWith('/')
+      ? backendURL.slice(0, -1)
+      : backendURL;
+
+    const apiPath = endpoint.startsWith('/')
+      ? endpoint
+      : `/${endpoint}`;
+
     return `${baseUrl}${apiPath}`;
+
   }, [backendURL]);
+
 
   // Fetch course data
   const getCourseData = useCallback(() => {
+
     if (!enrolledCourses || enrolledCourses.length === 0) return;
 
-    const findCourse = enrolledCourses.find((course) => course.id === courseID);
-    if (findCourse) {
-      setCourseData(findCourse);
-      console.log(findCourse);
+    const findCourse = enrolledCourses.find(
+      (course) => course.id === courseID
+    );
 
-      // Set initial rating if the user has already rated the course
+    if (findCourse) {
+
+      setCourseData(findCourse);
+
       const userRating = findCourse.course_ratings?.find(
         (rating) => rating.user_id === user?.id
       );
+
       if (userRating) {
         setInitialRating(userRating.rating);
       }
     }
+
   }, [enrolledCourses, courseID, user]);
 
-  // Fetch course progress
+
+  // Fetch progress
   const getCourseProgress = useCallback(async () => {
+
     if (!courseID || !token || progressFetched) return;
 
     try {
+
       const { data } = await axios.get(
-        createApiUrl(`users/get_course_progress?course_id=${courseID}`),
+        createApiUrl(
+          `users/get_course_progress?course_id=${courseID}`
+        ),
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
-      setProgressData(data.progressData || { lecture_completed: [] });
-      setProgressFetched(true);
-    } catch (error) {
-      console.error("Error fetching course progress:", error);
-      handleApiError(error, 'An error occurred while fetching course progress');
-    }
-  }, [createApiUrl, courseID, token, progressFetched]);
 
-  // Centralized error handling
-  const handleApiError = (error, defaultMessage) => {
+      setProgressData(
+        data.progressData || { lecture_completed: [] }
+      );
+
+      setProgressFetched(true);
+
+    } catch (error) {
+
+      console.error(
+        "Error fetching course progress:",
+        error
+      );
+
+      handleApiError(
+        error,
+        'Error fetching course progress'
+      );
+    }
+
+  }, [
+    createApiUrl,
+    courseID,
+    token,
+    progressFetched,
+  ]);
+
+
+  const handleApiError = (error, msg) => {
+
     if (error.response) {
-      toast.error(error.response.data.error || error.response.data.message || defaultMessage);
+
+      toast.error(
+        error.response.data.error ||
+        error.response.data.message ||
+        msg
+      );
+
     } else if (error.request) {
-      toast.error("No response received from server. Please check your connection.");
+
+      toast.error(
+        "Server not responding"
+      );
+
     } else {
-      toast.error(`${defaultMessage}: ${error.message}`);
+
+      toast.error(
+        `${msg}: ${error.message}`
+      );
     }
   };
 
-  // Mark lecture as completed
+
+  // Mark lecture completed
   const markLectureCompleted = async (lecture) => {
+
     if (!courseData || !lecture) return;
 
     try {
+
       const { data } = await axios.post(
-        createApiUrl('users/update_course_progress'),
+        createApiUrl(
+          'users/update_course_progress'
+        ),
         {
           course_id: courseID,
-          lecture_id: lecture.lecture_id || lecture.id,
+          lecture_id:
+            lecture.lecture_id ||
+            lecture.id,
         },
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         }
       );
 
       if (data.success) {
-        toast.success('Lecture marked as completed successfully!');
-        
-        // Update the local progress data directly instead of refetching
-        setProgressData(prevData => {
-          const updatedLectureCompleted = [...(prevData.lecture_completed || [])];
-          if (!updatedLectureCompleted.includes(lecture.lecture_id || lecture.id)) {
-            updatedLectureCompleted.push(lecture.lecture_id || lecture.id);
+
+        toast.success(
+          'Lecture marked completed!'
+        );
+
+        setProgressData((prev) => {
+
+          const updated =
+            [...prev.lecture_completed];
+
+          if (
+            !updated.includes(
+              lecture.lecture_id ||
+              lecture.id
+            )
+          ) {
+            updated.push(
+              lecture.lecture_id ||
+              lecture.id
+            );
           }
-          return { ...prevData, lecture_completed: updatedLectureCompleted };
+
+          return {
+            ...prev,
+            lecture_completed: updated,
+          };
         });
 
-        // Update lastRefreshed to trigger enrolledCourses update in the parent context
         setLastRefreshed(Date.now());
+
       } else {
-        toast.error(data.message || 'Failed to mark lecture as completed.');
+
+        toast.error(
+          data.message ||
+          'Failed updating progress'
+        );
       }
+
     } catch (error) {
-      console.error("Error marking lecture as completed:", error);
-      handleApiError(error, 'An error occurred while marking lecture completed');
+
+      console.error(error);
+
+      handleApiError(
+        error,
+        'Progress update failed'
+      );
     }
   };
 
-  // Handle course rating
+
+  // Submit rating
   const handleRate = async (rating) => {
+
     if (!courseData) return;
 
     try {
+
       const { data } = await axios.post(
         createApiUrl('users/add_rating'),
         {
           course_id: courseID,
-          rating: rating,
+          rating,
         },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
       if (data.success) {
-        toast.success('Course rating submitted successfully!');
+
+        toast.success('Rating saved');
+
         setInitialRating(rating);
 
-        // Update lastRefreshed to trigger enrolledCourses update in the parent context
         setLastRefreshed(Date.now());
+
       } else {
-        toast.error(data.message || 'Failed to submit rating.');
+
+        toast.error(
+          data.message ||
+          'Rating failed'
+        );
       }
+
     } catch (error) {
-      console.error("Error rating course:", error);
-      handleApiError(error, 'An error occurred while rating the course');
+
+      console.error(error);
+
+      handleApiError(
+        error,
+        'Rating error'
+      );
     }
   };
 
-  // Fetch data when component mounts and when enrolledCourses changes
+
+  // Load course
   useEffect(() => {
-    if (enrolledCourses && enrolledCourses.length > 0) {
+
+    if (
+      enrolledCourses &&
+      enrolledCourses.length > 0
+    ) {
+
       getCourseData();
+
       setIsLoading(false);
     }
-  }, [enrolledCourses, getCourseData]);
 
-  // Fetch course progress only once
+  }, [
+    enrolledCourses,
+    getCourseData
+  ]);
+
+
+  // Load progress
   useEffect(() => {
-    if (courseID && token && !progressFetched) {
+
+    if (
+      courseID &&
+      token &&
+      !progressFetched
+    ) {
+
       getCourseProgress();
     }
-  }, [courseID, token, getCourseProgress, progressFetched]);
 
-  // Toggle section visibility
+  }, [
+    courseID,
+    token,
+    getCourseProgress,
+    progressFetched,
+  ]);
+
+
   const toggleSection = (index) => {
+
     setOpenSections((prev) => ({
       ...prev,
       [index]: !prev[index],
     }));
   };
 
-  // Check if lecture is completed
+
   const isLectureCompleted = (lectureId) => {
-    return progressData?.lecture_completed?.includes(lectureId) || false;
+
+    return (
+      progressData?.lecture_completed?.includes(
+        lectureId
+      ) || false
+    );
   };
 
-  if (isLoading) {
-    return <Loading />;
-  }
+
+  if (isLoading) return <Loading />;
+
 
   if (!courseData) {
+
     return (
+
       <div className="flex flex-col items-center justify-center h-screen">
-        <p className="text-xl text-gray-600">Course not found or not enrolled.</p>
+
+        <p className="text-xl text-gray-600">
+          Course not found or not enrolled
+        </p>
+
         <button
-          onClick={() => navigate('/my-enrollments')}
-          className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          onClick={() =>
+            navigate('/my-enrollments')
+          }
+          className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md"
         >
-          Back to My Enrollments
+          Back
         </button>
+
       </div>
     );
   }
 
+
   return (
     <>
-      <div className="p-4 sm:p-10 flex flex-col-reverse md:grid md:grid-cols-2 gap-10 md:px-36">
-        {/* Left Column: Course Structure */}
-        <div className="text-gray-800">
-          <h2 className="text-xl font-semibold">Course Structure</h2>
-          <div className="pt-5">
-            {courseData.chapters?.map((chapter, index) => (
-              <div key={chapter.id || index} className="border border-gray-300 bg-white mb-2 rounded">
-                <div
-                  onClick={() => toggleSection(index)}
-                  className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
-                >
-                  <div className="flex items-center gap-2">
-                    <img
-                      className={`transform transition-transform ${
-                        openSections[index] ? 'rotate-180' : ''
-                      }`}
-                      src={assets.down_arrow_icon}
-                      alt="arrow icon"
-                    />
-                    <p className="font-medium md:text-base text-sm">
-                      {chapter.chapter_title}
-                    </p>
-                  </div>
-                  <p className="text-sm md:text-base">
-                    {chapter.lectures?.length || 0} lectures - {calculateChapterTime(chapter)}
-                  </p>
-                </div>
-                <div className={`overflow-hidden transition-all duration-300 ${openSections[index] ? 'max-h-96' : 'max-h-0'}`}>
-                  <ul className="md:pl-10 pl-4 pr-4 py-2 text-gray-600 border-t border-gray-300">
-                    {chapter.lectures?.map((lecture, i) => (
-                      <li key={lecture.id || i} className="flex items-center gap-2 py-1">
-                        <img
-                          src={
-                            isLectureCompleted(lecture.id)
-                              ? assets.blue_tick_icon
-                              : assets.play_icon
-                          }
-                          className="w-4 h-4"
-                          alt="play icon"
-                        />
-                        <div className="flex items-center justify-between w-full text-gray-800 text-xs md:text-base">
-                          <p>{lecture.lecture_title}</p>
-                          <div className="flex gap-2">
-                            {lecture.lecture_url && (
-                              <p
-                                onClick={() => setPlayerData({ ...lecture, chapter: index + 1, lecture: i + 1 })}
-                                className="text-blue-600 cursor-pointer"
-                              >
-                                Watch
-                              </p>
-                            )}
-                            <p>
-                              {humanizeDuration(lecture.lecture_duration * 60 * 1000, { units: ['h', 'm'] })}
-                            </p>
+      <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-8 md:px-20">
+        
+        {/* Main Container */}
+        <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-8">
+          
+          {/* RIGHT PLAYER - 2 columns */}
+          <div className="md:col-span-2">
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              {playerData ? (
+                <div>
+                  {(() => {
+                    const videoId = getYoutubeId(playerData.lecture_url);
+                    
+                    if (!videoId) {
+                      console.error("Invalid YouTube URL:", playerData.lecture_url);
+                      return (
+                        <div className="w-full aspect-video bg-gray-200 rounded flex items-center justify-center">
+                          <div className="text-center text-gray-600">
+                            <p className="font-semibold">Invalid video URL</p>
+                            <p className="text-sm mt-2">{playerData.lecture_url}</p>
                           </div>
                         </div>
-                      </li>
-                    ))}
-                  </ul>
+                      );
+                    }
+
+                    return (
+                      <YouTube
+                        videoId={videoId}
+                        iframeClassName="w-full aspect-video rounded"
+                        onError={(error) => {
+                          console.error("YouTube error:", error);
+                          toast.error("Error loading video");
+                        }}
+                      />
+                    );
+                  })()}
+
+                  <div className="mt-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                      {playerData.lecture_title}
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Duration: {humanizeDuration(playerData.lecture_duration * 60 * 1000, { units: ["h", "m"] })}
+                    </p>
+                    
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() =>
+                          markLectureCompleted(
+                            playerData
+                          )
+                        }
+                        className={`px-6 py-2 rounded font-medium transition ${
+                          isLectureCompleted(playerData.lecture_id || playerData.id)
+                            ? 'bg-green-500 text-white'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {isLectureCompleted(playerData.lecture_id || playerData.id) ? '✓ Completed' : 'Mark Complete'}
+                      </button>
+                      <button
+                        onClick={() => setPlayerData(null)}
+                        className="px-6 py-2 rounded font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Course Rating */}
-          <div className="flex items-center gap-2 py-3 mt-10">
-            <h1 className="text-xl font-bold">Rate this Course:</h1>
-            <Rating initialRating={initialRating} onRate={handleRate} />
-          </div>
-        </div>
-
-        {/* Right Column: Video Player */}
-        <div>
-          {playerData ? (
-            <div>
-              <YouTube
-                videoId={playerData.lecture_url?.split('/').pop()}
-                iframeClassName="w-full aspect-video"
-              />
-              <button
-                onClick={() => markLectureCompleted(playerData)}
-                className={`mt-3 px-4 py-2 rounded ${
-                  isLectureCompleted(playerData.id)
-                    ? 'bg-green-500 text-white'
-                    : 'bg-blue-500 text-white'
-                }`}
-              >
-                {isLectureCompleted(playerData.id) ? 'Completed' : 'Mark Complete'}
-              </button>
+              ) : (
+                <div className="text-center">
+                  <img
+                    src={
+                      courseData.thumbnail_url ||
+                      "https://via.placeholder.com/800x450"
+                    }
+                    alt="thumbnail"
+                    className="w-full rounded-lg"
+                  />
+                  <p className="mt-4 text-gray-600">Select a lecture to start watching</p>
+                </div>
+              )}
             </div>
-          ) : (
-            <img
-              src={courseData.thumbnail_url || "https://via.placeholder.com/640x360?text=Course+Thumbnail"}
-              alt="Course Thumbnail"
-              className="w-full rounded-lg shadow-md"
-              onError={(e) => {
-                e.target.src = "https://via.placeholder.com/640x360?text=Course+Thumbnail";
-              }}
-            />
-          )}
+
+            {/* Rating Section */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mt-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Rate this Course</h3>
+              <Rating
+                initialRating={initialRating}
+                onRate={handleRate}
+              />
+            </div>
+          </div>
+
+          {/* LEFT COURSE STRUCTURE - 1 column */}
+          <div className="md:col-span-1">
+            <div className="bg-white rounded-lg shadow-lg p-6 sticky top-10">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">
+                Course Structure
+              </h2>
+
+              <div className="space-y-2">
+                {courseData.chapters?.map((chapter, index) => (
+                  <div
+                    key={chapter.id || index}
+                    className="border border-gray-300 rounded-lg overflow-hidden"
+                  >
+                    {/* Chapter Header */}
+                    <div
+                      onClick={() => toggleSection(index)}
+                      className="flex justify-between items-center px-4 py-3 cursor-pointer hover:bg-gray-100 transition bg-gray-50"
+                    >
+                      <div className="flex gap-2 items-center flex-1">
+                        <img
+                          src={assets.down_arrow_icon}
+                          alt=""
+                          className={`w-5 h-5 transition transform ${
+                            openSections[index] ? 'rotate-180' : ''
+                          }`}
+                        />
+                        <p className="font-medium text-gray-800 text-sm">
+                          {chapter.chapter_title}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-600 whitespace-nowrap">
+                        {chapter.lectures?.length || 0}
+                      </p>
+                    </div>
+
+                    {/* Lectures List */}
+                    {openSections[index] && (
+                      <ul className="bg-white border-t border-gray-300">
+                        {chapter.lectures?.map((lecture, i) => (
+                          <li
+                            key={lecture.id || i}
+                            className="border-b border-gray-100 last:border-b-0 hover:bg-blue-50 transition"
+                          >
+                            <div className="px-4 py-3">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <p className="text-sm text-gray-700 font-medium flex-1">
+                                  {lecture.lecture_title}
+                                </p>
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded whitespace-nowrap">
+                                  {humanizeDuration(lecture.lecture_duration * 60 * 1000, { units: ["m"] })}
+                                </span>
+                              </div>
+
+                              <div className="flex gap-2 items-center text-xs">
+                                {isLectureCompleted(lecture.lecture_id || lecture.id) && (
+                                  <span className="text-green-600 font-semibold">✓ Done</span>
+                                )}
+                                {lecture.lecture_url && (
+                                  <button
+                                    onClick={() =>
+                                      setPlayerData(lecture)
+                                    }
+                                    className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
+                                  >
+                                    {isLectureCompleted(lecture.lecture_id || lecture.id) ? 'Rewatch' : 'Watch'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-300">
+                <p className="text-xs text-gray-600">
+                  Total Duration: <span className="font-semibold text-gray-800">{calculateCourseTime(courseData)}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
+
       <Footer />
     </>
   );

@@ -14,14 +14,14 @@ const CoursesList = () => {
     if (allCourses && allCourses.length > 0) {
       if (input) {
         const filtered = allCourses.filter((course) =>
-          course.courseTitle.toLowerCase().includes(input.toLowerCase())
+          course.course_title.toLowerCase().includes(input.toLowerCase())
         );
         setFilteredCourses(filtered);
       } else {
         setFilteredCourses(allCourses);
       }
     }
-  }, []);
+  }, [input, allCourses]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

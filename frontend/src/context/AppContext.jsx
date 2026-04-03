@@ -143,30 +143,30 @@ export const AppContextProvider = (props) => {
     }, [backendURL, token, user, isLoadingEnrolledCourses, enrolledCourses]);
 
     // Load data on component mount - ONE TIME ONLY
-    useEffect(() => {
-        let isMounted = true;
-        
-        const initializeData = async () => {
-            if (!isMounted) return;
-            
-            // Always fetch courses regardless of authentication
-            if (!dataLoaded) {
-                await fetchAllCourses();
-            }
-            
-            // Only fetch user-specific data if authenticated
-            if (token && user && !isLoadingEnrolledCourses && enrolledCourses.length === 0) {
-                await fetchUserEnrolledCourses();
-            }
-        };
-        
-        initializeData();
-        
-        return () => {
-            isMounted = false;
-        };
-    }, [token, dataLoaded, fetchAllCourses, fetchUserEnrolledCourses, user, isLoadingEnrolledCourses, enrolledCourses.length]);
+  useEffect(() => {
+    let isMounted = true;
 
+    const initializeData = async () => {
+        if (!isMounted) return;
+
+        if (!dataLoaded) {
+            await fetchAllCourses();
+        }
+
+        if (token && user && !isLoadingEnrolledCourses) {
+            await fetchUserEnrolledCourses();
+        }
+    };
+
+    initializeData();
+
+    return () => {
+        isMounted = false;
+    };
+}, [
+    token,
+    user
+]);
     // Handle manual refresh requests
     useEffect(() => {
         if (lastRefreshed && token) {
