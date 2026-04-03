@@ -4,7 +4,7 @@ import { assets } from "../../assets/assets";
 import { AppContext } from "../../context/AppContext";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Bell } from "lucide-react";
+import { Bell, Moon, Sun } from "lucide-react";
 
 const Navbar = () => {
   const location = useLocation();
@@ -21,6 +21,8 @@ const Navbar = () => {
     unreadNotificationsCount,
     markNotificationRead,
     markAllNotificationsRead,
+    theme,
+    toggleTheme,
   } = useContext(AppContext);
   const [showNotifications, setShowNotifications] = useState(false);
   const isCourseListPage = location.pathname.includes("/course-list");
@@ -100,7 +102,7 @@ const Navbar = () => {
       <div>
         <img
           onClick={() => navigate("/")}
-          src={assets.logo}
+          src={theme === "dark" ? assets.logo_dark : assets.logo}
           alt="Logo"
           className="w-28 lg:w-32 cursor-pointer"
         />
@@ -121,6 +123,15 @@ const Navbar = () => {
 
         {isLoggedIn ? (
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="h-10 w-10 rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun className="w-5 h-5 mx-auto" /> : <Moon className="w-5 h-5 mx-auto" />}
+            </button>
+
             <div className="relative">
               <button
                 type="button"
@@ -216,6 +227,14 @@ const Navbar = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={toggleTheme}
+              className="h-8 w-8 rounded-full border border-gray-300 bg-white text-gray-700"
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4 mx-auto" /> : <Moon className="w-4 h-4 mx-auto" />}
+            </button>
+            <button
+              type="button"
               onClick={() => setShowNotifications((prev) => !prev)}
               className="relative h-8 w-8 rounded-full border border-gray-300 bg-white text-xs text-gray-700"
             >
@@ -237,9 +256,19 @@ const Navbar = () => {
             </button>
           </div>
         ) : (
-          <button onClick={handleAuthClick} className="flex items-center">
-            <img src={assets.user_icon} alt="auth" className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="h-8 w-8 rounded-full border border-gray-300 bg-white text-gray-700"
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4 mx-auto" /> : <Moon className="w-4 h-4 mx-auto" />}
+            </button>
+            <button onClick={handleAuthClick} className="flex items-center">
+              <img src={assets.user_icon} alt="auth" className="w-6 h-6" />
+            </button>
+          </div>
         )}
       </div>
 

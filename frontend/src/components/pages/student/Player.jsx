@@ -37,6 +37,7 @@ const Player = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
   const doubtsSectionRef = useRef(null);
+  const hasAutoSelectedLectureRef = useRef(false);
 
 
   // ✅ FIXED: Youtube ID extractor (supports all formats)
@@ -182,8 +183,6 @@ const Player = () => {
         data.progressData || { lecture_completed: [] }
       );
 
-      setProgressFetched(true);
-
     } catch (error) {
 
       console.error(
@@ -195,6 +194,8 @@ const Player = () => {
         error,
         'Error fetching course progress'
       );
+    } finally {
+      setProgressFetched(true);
     }
 
   }, [
@@ -432,6 +433,85 @@ const Player = () => {
   useEffect(() => {
     fetchCourseAnnouncements();
   }, [fetchCourseAnnouncements]);
+
+  useEffect(() => {
+    hasAutoSelectedLectureRef.current = false;
+    setPlayerData(null);
+  }, [courseID]);
+
+  const getOrderedLectures = useCallback((course) => {
+    if (!course?.chapters?.length) return [];
+
+    return [...course.chapters]
+      .sort((chapterA, chapterB) => (chapterA.chapter_order || 0) - (chapterB.chapter_order || 0))
+      .flatMap((chapter) =>
+        [...(chapter.lectures || [])].sort(
+          (lectureA, lectureB) => (lectureA.lecture_order || 0) - (lectureB.lecture_order || 0)
+        )
+      );
+  }, []);
+
+  const getResumeStorageKey = useCallback(() => {
+    if (!user?.id || !courseID) return null;
+    return `edemy:last-lecture:${user.id}:${courseID}`;
+  }, [user, courseID]);
+
+  const saveLastLecture = useCallback((lecture) => {
+    const key = getResumeStorageKey();
+    if (!key || !lecture) return;
+
+    const lectureId = lecture.lecture_id || lecture.id;
+    if (!lectureId) return;
+
+    localStorage.setItem(key, String(lectureId));
+  }, [getResumeStorageKey]);
+
+  useEffect(() => {
+    if (!playerData) return;
+    saveLastLecture(playerData);
+  }, [playerData, saveLastLecture]);
+
+  useEffect(() => {
+    if (!courseData || !progressFetched || hasAutoSelectedLectureRef.current) return;
+
+    const orderedLectures = getOrderedLectures(courseData);
+    if (orderedLectures.length === 0) return;
+
+    const completedSet = new Set(
+      (progressData?.lecture_completed || []).map((lectureId) => String(lectureId))
+    );
+
+    let nextLecture = null;
+    const resumeKey = getResumeStorageKey();
+
+    if (resumeKey) {
+      const savedLectureId = localStorage.getItem(resumeKey);
+      if (savedLectureId) {
+        nextLecture = orderedLectures.find(
+          (lecture) => String(lecture.lecture_id || lecture.id) === String(savedLectureId)
+        );
+      }
+    }
+
+    if (!nextLecture) {
+      nextLecture = orderedLectures.find(
+        (lecture) => !completedSet.has(String(lecture.lecture_id || lecture.id))
+      );
+    }
+
+    if (!nextLecture) {
+      nextLecture = orderedLectures[0];
+    }
+
+    setPlayerData(nextLecture);
+    hasAutoSelectedLectureRef.current = true;
+  }, [
+    courseData,
+    progressFetched,
+    progressData,
+    getOrderedLectures,
+    getResumeStorageKey,
+  ]);
 
   const totalLectures = (courseData?.chapters || []).reduce(
     (count, chapter) => count + (chapter.lectures?.length || 0),

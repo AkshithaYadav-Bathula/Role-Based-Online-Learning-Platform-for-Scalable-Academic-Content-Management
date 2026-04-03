@@ -15,6 +15,18 @@ export const AppContextProvider = (props) => {
     const [enrolledCourses, setEnrolledCourses] = useState([]);
     const [notifications, setNotifications] = useState([]);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+    const [theme, setTheme] = useState(() => {
+        const storedTheme = localStorage.getItem("theme");
+        if (storedTheme === "dark" || storedTheme === "light") {
+            return storedTheme;
+        }
+
+        if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            return "dark";
+        }
+
+        return "light";
+    });
     const [lastRefreshed, setLastRefreshed] = useState(null); // Initialize as null
     const [dataLoaded, setDataLoaded] = useState(false);
     const [isLoadingEnrolledCourses, setIsLoadingEnrolledCourses] = useState(false);
@@ -280,6 +292,20 @@ export const AppContextProvider = (props) => {
     
     // Set up interceptors for API response error handling
     useEffect(() => {
+        const root = document.documentElement;
+        if (theme === "dark") {
+            root.classList.add("dark");
+        } else {
+            root.classList.remove("dark");
+        }
+        localStorage.setItem("theme", theme);
+    }, [theme]);
+
+    const toggleTheme = useCallback(() => {
+        setTheme((previousTheme) => (previousTheme === "dark" ? "light" : "dark"));
+    }, []);
+
+    useEffect(() => {
         const responseInterceptor = api.interceptors.response.use(
             response => response,
             error => {
@@ -384,6 +410,8 @@ export const AppContextProvider = (props) => {
         token,
         user,
         setUser,
+        theme,
+        toggleTheme,
         refreshUserData,
         lastRefreshed,
         setLastRefreshed,
