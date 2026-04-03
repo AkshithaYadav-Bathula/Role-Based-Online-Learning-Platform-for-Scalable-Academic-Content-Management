@@ -34,7 +34,8 @@ class UsersController < ApplicationController
       end
       
       # Add this line to set the Stripe API key
-      Stripe.api_key = "STRIPE_SECRET_KEY_REMOVED"
+Stripe.api_key = "" # you have to replace this below use it
+      # "STRIPE_SECRET_KEY_REMOVED"
       
       course = Course.find(params[:course_id])
       amount = (course.course_price - (course.discount * course.course_price / 100)).round(2)
