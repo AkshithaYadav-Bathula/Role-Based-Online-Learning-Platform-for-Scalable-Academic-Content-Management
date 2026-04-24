@@ -36,6 +36,8 @@ const Player = () => {
   const [progressFetched, setProgressFetched] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [playerNotes, setPlayerNotes] = useState('');
   const doubtsSectionRef = useRef(null);
   const hasAutoSelectedLectureRef = useRef(false);
 
@@ -413,9 +415,12 @@ const Player = () => {
   };
 
   const scrollToDoubts = () => {
-    if (doubtsSectionRef.current) {
-      doubtsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setActiveTab('qna');
+    setTimeout(() => {
+      if (doubtsSectionRef.current) {
+        doubtsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
   };
 
   const fetchCourseAnnouncements = useCallback(async () => {
@@ -450,7 +455,18 @@ const Player = () => {
   useEffect(() => {
     hasAutoSelectedLectureRef.current = false;
     setPlayerData(null);
+    setActiveTab('overview');
   }, [courseID]);
+
+  useEffect(() => {
+    if (!courseID) {
+      setPlayerNotes('');
+      return;
+    }
+
+    const storageKey = `player_notes_${courseID}_${user?.id || 'guest'}`;
+    setPlayerNotes(localStorage.getItem(storageKey) || '');
+  }, [courseID, user]);
 
   const getOrderedLectures = useCallback((course) => {
     if (!course?.chapters?.length) return [];
@@ -566,6 +582,21 @@ const Player = () => {
       logoUrl: assets.logo_dark,
       brandName: 'EDEMY',
     });
+  };
+
+  const learningTabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'qna', label: 'Q&A' },
+    { id: 'notes', label: 'Notes' },
+    { id: 'announcements', label: 'Announcements' },
+    { id: 'learning-tools', label: 'Learning tools' },
+  ];
+
+  const handlePlayerNotesChange = (event) => {
+    const value = event.target.value;
+    setPlayerNotes(value);
+    const storageKey = `player_notes_${courseID}_${user?.id || 'guest'}`;
+    localStorage.setItem(storageKey, value);
   };
 
 
@@ -694,7 +725,31 @@ const Player = () => {
               )}
             </div>
 
-            <div ref={doubtsSectionRef}>
+            <div className="mt-6 border-b border-slate-200">
+              <div className="flex flex-wrap items-center gap-2 pb-2">
+                {learningTabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {activeTab === 'qna' && (
+            <div ref={doubtsSectionRef} className="mt-8">
               <CourseDoubtsPanel
                 courseId={courseData.id}
                 courseTitle={courseData.course_title}
@@ -704,7 +759,9 @@ const Player = () => {
                 canAsk={true}
               />
             </div>
+            )}
 
+            {activeTab === 'announcements' && (
             <div className="bg-white rounded-lg shadow-lg p-6 mt-8">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Announcements</h3>
 
@@ -726,8 +783,9 @@ const Player = () => {
                 </div>
               )}
             </div>
+            )}
 
-            {courseResources.length > 0 && (
+            {activeTab === 'learning-tools' && courseResources.length > 0 && (
               <div className="bg-white rounded-lg shadow-lg p-6 mt-8">
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">Course Resources</h3>
                 <p className="text-sm text-gray-500 mb-4">
@@ -771,6 +829,27 @@ const Player = () => {
               </div>
             )}
 
+            {activeTab === 'learning-tools' && courseResources.length === 0 && (
+              <div className="bg-white rounded-lg shadow-lg p-6 mt-8">
+                <p className="text-sm text-gray-500">No learning resources have been added yet.</p>
+              </div>
+            )}
+
+            {activeTab === 'notes' && (
+              <div className="bg-white rounded-lg shadow-lg p-6 mt-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">My Notes</h3>
+                <p className="text-sm text-gray-500 mb-4">Notes are auto-saved for this course.</p>
+                <textarea
+                  rows={10}
+                  value={playerNotes}
+                  onChange={handlePlayerNotesChange}
+                  placeholder="Write your notes here..."
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                />
+              </div>
+            )}
+
+            {activeTab === 'overview' && (
             <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 shadow-xl">
               <div className="flex flex-col gap-6 px-6 py-6 text-white md:flex-row md:items-center md:justify-between md:px-8">
                 <div className="max-w-xl">
@@ -808,8 +887,10 @@ const Player = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Rating Section */}
+            {activeTab === 'overview' && (
             <div className="bg-white rounded-lg shadow-lg p-6 mt-8">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Rate this Course</h3>
               <Rating
@@ -817,6 +898,7 @@ const Player = () => {
                 onRate={handleRate}
               />
             </div>
+            )}
           </div>
 
           {/* LEFT COURSE STRUCTURE - 1 column */}

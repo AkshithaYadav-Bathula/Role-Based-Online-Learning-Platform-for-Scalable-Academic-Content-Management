@@ -21,6 +21,8 @@ const CourseDetails = () => {
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
   const [isPostingAnnouncement, setIsPostingAnnouncement] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [courseNotes, setCourseNotes] = useState("");
   const navigate = useNavigate();
 
   const {
@@ -119,7 +121,7 @@ const CourseDetails = () => {
     }
       
     if (isAlreadyEnrolled) {
-      toast.warn("You are already enrolled in this course.");
+      navigate(`/player/${id}`);
       return;
     }
     
@@ -232,17 +234,41 @@ const CourseDetails = () => {
     }
   };
 
-  if (!courseData) {
-    return <Loading />;
-  }
-
-  const courseDescription = courseData.course_description || "";
-  const educatorName = courseData.educator?.name || "Unknown Educator";
-  const courseContent = courseData.chapters || [];
-  const courseRatings = courseData.course_ratings || [];
-  const courseResources = Array.isArray(courseData.resources) ? courseData.resources : [];
+  const courseDescription = courseData?.course_description || "";
+  const educatorName = courseData?.educator?.name || "Unknown Educator";
+  const courseContent = courseData?.chapters || [];
+  const courseRatings = courseData?.course_ratings || [];
+  const courseResources = Array.isArray(courseData?.resources) ? courseData.resources : [];
   const canAccessDoubts = isAlreadyEnrolled || isCourseEducator;
   const canViewResources = isAlreadyEnrolled || isCourseEducator;
+  const hasLearningAccess = isAlreadyEnrolled || isCourseEducator;
+
+  const tabs = [
+    { id: "overview", label: "Overview", requiresEnrollment: false },
+    { id: "qna", label: "Q&A", requiresEnrollment: true },
+    { id: "notes", label: "Notes", requiresEnrollment: true },
+    { id: "announcements", label: "Announcements", requiresEnrollment: true },
+    { id: "learning-tools", label: "Learning Tools", requiresEnrollment: true },
+  ];
+
+  useEffect(() => {
+    if (hasLearningAccess) return;
+
+    if (activeTab !== "overview") {
+      setActiveTab("overview");
+    }
+  }, [activeTab, hasLearningAccess]);
+
+  useEffect(() => {
+    if (!id || !hasLearningAccess) {
+      setCourseNotes("");
+      return;
+    }
+
+    const storageKey = `course_notes_${id}_${user?.id || "guest"}`;
+    const storedNotes = localStorage.getItem(storageKey) || "";
+    setCourseNotes(storedNotes);
+  }, [id, hasLearningAccess, user]);
 
 
   const toggleSection = (index) => {
@@ -263,9 +289,30 @@ const CourseDetails = () => {
     window.open(resourceUrl, "_blank", "noopener,noreferrer");
   };
 
+  const handleTabClick = (tab) => {
+    if (tab.requiresEnrollment && !hasLearningAccess) {
+      toast.info("Enroll to access Q&A, notes, announcements, and learning tools.");
+      return;
+    }
+
+    setActiveTab(tab.id);
+  };
+
+  const handleNotesChange = (event) => {
+    const nextValue = event.target.value;
+    setCourseNotes(nextValue);
+
+    const storageKey = `course_notes_${id}_${user?.id || "guest"}`;
+    localStorage.setItem(storageKey, nextValue);
+  };
+
+  if (!courseData) {
+    return <Loading />;
+  }
+
   return (
     <>
-      <div className="flex md:flex-row flex-col-reverse gap-10 items-start justify-between md:px-36 px-8 md:pt-30 pt-20 text-left">
+      <div className="flex md:flex-row flex-col-reverse gap-10 items-start justify-between md:px-36 px-8 md:pt-24 pt-14 text-left">
         {/* Background gradient */}
         <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-cyan-100/70 -z-10"></div>
 
@@ -310,7 +357,98 @@ const CourseDetails = () => {
             Course by <span className="text-blue-600">{educatorName}</span>
           </p>
 
+          {hasLearningAccess && (
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-sm">
+                {playerData?.videoId ? (
+                  <Youtube
+                    videoId={playerData.videoId}
+                    options={{
+                      playerVars: {
+                        autoplay: 1,
+                      },
+                    }}
+                    iframeClassName="w-full aspect-video"
+                    onError={(error) => {
+                      console.error("YouTube error:", error);
+                      toast.error("Error loading preview video");
+                      setPlayerData(null);
+                    }}
+                  />
+                ) : (
+                  <div className="relative aspect-video">
+                    <img
+                      src={courseData.thumbnail_url}
+                      alt="Course Thumbnail"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h3 className="text-lg font-semibold text-slate-900">Course content</h3>
+                <div className="mt-3 space-y-2">
+                  {courseContent.map((chapter, index) => (
+                    <button
+                      key={`sidebar-chapter-${index}`}
+                      type="button"
+                      onClick={() => toggleSection(index)}
+                      className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
+                    >
+                      <span className="text-sm font-medium text-slate-800">{chapter.chapter_title}</span>
+                      <span className="text-xs text-slate-500">{chapter.lectures?.length || 0}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs text-slate-500">Total Duration: {calculateCourseTime(courseData)}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 border-b border-slate-200">
+            <div className="flex flex-wrap items-center gap-3 pb-2">
+              {tabs.map((tab) => {
+                const locked = tab.requiresEnrollment && !hasLearningAccess;
+                const isActive = activeTab === tab.id;
+
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => handleTabClick(tab)}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      isActive
+                        ? "bg-slate-900 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>{tab.label}</span>
+                      {locked && (
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden="true"
+                        >
+                          <rect x="5" y="11" width="14" height="10" rx="2" />
+                          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                        </svg>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Course Structure */}
+          {activeTab === "overview" && (
+          <>
+          {!hasLearningAccess && (
           <div className="pt-8 text-gray-800">
             <h2 className="text-xl font-semibold">Course Structure</h2>
 
@@ -389,6 +527,7 @@ const CourseDetails = () => {
               ))}
             </div>
           </div>
+          )}
 
           {/* Course Description */}
           <div className="pt-8">
@@ -400,8 +539,10 @@ const CourseDetails = () => {
               }}
             />
           </div>
+          </>
+          )}
 
-          {canViewResources && courseResources.length > 0 && (
+          {activeTab === "learning-tools" && canViewResources && courseResources.length > 0 && (
             <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Learning extras</p>
               <h3 className="mt-1 text-xl font-semibold text-slate-900">Course Resources</h3>
@@ -441,7 +582,13 @@ const CourseDetails = () => {
             </div>
           )}
 
-          {canViewAnnouncements && (
+          {activeTab === "learning-tools" && hasLearningAccess && courseResources.length === 0 && (
+            <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+              No learning tools added yet. Your instructor can add resources any time.
+            </div>
+          )}
+
+          {activeTab === "announcements" && canViewAnnouncements && (
             <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Course updates</p>
               <h3 className="mt-1 text-xl font-semibold text-slate-900">Announcements</h3>
@@ -500,7 +647,7 @@ const CourseDetails = () => {
             </div>
           )}
 
-          {canAccessDoubts ? (
+          {activeTab === "qna" && (canAccessDoubts ? (
             <CourseDoubtsPanel
               courseId={courseData.id}
               courseTitle={courseData.course_title}
@@ -513,10 +660,32 @@ const CourseDetails = () => {
             <div className="mt-10 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-sm text-gray-600">
               Enroll in this course to ask doubts and follow the discussion.
             </div>
+          ))}
+
+          {activeTab === "notes" && (
+            hasLearningAccess ? (
+              <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Personal Notes</p>
+                <h3 className="mt-1 text-xl font-semibold text-slate-900">My Notes</h3>
+                <p className="mt-1 text-sm text-slate-600">Notes are auto-saved for this course.</p>
+                <textarea
+                  rows={10}
+                  value={courseNotes}
+                  onChange={handleNotesChange}
+                  placeholder="Write your learning notes here..."
+                  className="mt-4 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                />
+              </div>
+            ) : (
+              <div className="mt-10 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-sm text-gray-600">
+                Enroll in this course to use notes.
+              </div>
+            )
           )}
         </div>
 
         {/* Right column */}
+        {!hasLearningAccess && (
         <div className="md:w-1/3 w-full">
           {playerData ? (
             <div className="rounded-lg shadow-md overflow-hidden">
@@ -626,7 +795,7 @@ const CourseDetails = () => {
               {isCourseEducator
                 ? "You Created This Course"
                 : isAlreadyEnrolled
-                  ? "Already Enrolled"
+                  ? "Go To Course"
                   : "Enroll Now"}
             </button>
 
@@ -644,6 +813,7 @@ const CourseDetails = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
       <Footer />
     </>
