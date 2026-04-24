@@ -90,6 +90,49 @@ class EducatorsController < ApplicationController
     }, status: :unprocessable_entity
   end
 
+  def upload_resource_file
+    uploaded_file = params[:resource_file]
+
+    if uploaded_file.blank?
+      return render json: {
+        success: false,
+        message: "Please choose a file to upload"
+      }, status: :unprocessable_entity
+    end
+
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: uploaded_file.tempfile,
+      filename: uploaded_file.original_filename,
+      content_type: uploaded_file.content_type
+    )
+
+    resource_type = if uploaded_file.content_type.to_s.start_with?("image/")
+                      "image"
+                    elsif uploaded_file.content_type.to_s.start_with?("video/")
+                      "video"
+                    else
+                      "file"
+                    end
+
+    render json: {
+      success: true,
+      message: "File uploaded successfully",
+      file: {
+        url: Rails.application.routes.url_helpers.rails_blob_url(blob, host: request.base_url),
+        blobSignedId: blob.signed_id,
+        fileName: uploaded_file.original_filename,
+        contentType: uploaded_file.content_type,
+        fileSize: uploaded_file.size,
+        resourceType: resource_type
+      }
+    }
+  rescue StandardError => e
+    render json: {
+      success: false,
+      message: e.message
+    }, status: :unprocessable_entity
+  end
+
   def course_details
     render json: {
       success: true,
@@ -301,6 +344,7 @@ class EducatorsController < ApplicationController
       course_description: course_data['course_description'],
       course_price: course_data['course_price'],
       discount: course_data['discount'],
+      resources: normalize_course_resources(course_data['resources']),
       educator_id: @current_user.id,
       is_published: true,
       thumbnail: params[:course_thumbnail]
@@ -384,6 +428,16 @@ class EducatorsController < ApplicationController
       :course_price,
       :discount,
       :is_published,
+      resources: [
+        :resourceType,
+        :title,
+        :url,
+        :description,
+        :blobSignedId,
+        :fileName,
+        :contentType,
+        :fileSize
+      ],
       course_content: [
         :chapterOrder,
         :chapterTitle,
@@ -437,6 +491,37 @@ class EducatorsController < ApplicationController
     else
       content_payload
     end
+  end
+
+  def normalize_course_resources(resources_payload)
+    resources = normalize_course_content(resources_payload)
+
+    Array(resources).map do |resource|
+      next if resource.blank?
+
+      blob_signed_id = resource['blobSignedId'].to_s.strip
+      resolved_url = resource['url'].to_s.strip
+
+      if resolved_url.blank? && blob_signed_id.present?
+        begin
+          blob = ActiveStorage::Blob.find_signed(blob_signed_id)
+          resolved_url = Rails.application.routes.url_helpers.rails_blob_url(blob, host: request.base_url) if blob
+        rescue StandardError
+          resolved_url = ""
+        end
+      end
+
+      {
+        'resourceType' => resource['resourceType'].presence || 'link',
+        'title' => resource['title'].to_s.strip,
+        'url' => resolved_url,
+        'description' => resource['description'].to_s.strip,
+        'blobSignedId' => blob_signed_id,
+        'fileName' => resource['fileName'].to_s.strip,
+        'contentType' => resource['contentType'].to_s.strip,
+        'fileSize' => resource['fileSize'].to_i
+      }
+    end.compact
   end
 
   def serialize_announcement(announcement)

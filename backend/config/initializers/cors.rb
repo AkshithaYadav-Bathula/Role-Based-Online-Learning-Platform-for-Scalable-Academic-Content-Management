@@ -20,7 +20,16 @@
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
     # Allow requests from your frontend domain
-    origins 'localhost:5173', 'localhost:3001', 'localhost:3000', 'localhost:5174'
+    origins(
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5174',
+      'http://localhost:3001',
+      'http://127.0.0.1:3001',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
+    )
 
     resource '*',
       headers: :any,

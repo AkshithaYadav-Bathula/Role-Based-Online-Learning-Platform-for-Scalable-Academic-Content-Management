@@ -10,10 +10,10 @@ const MyCourses = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [editingCourse, setEditingCourse] = useState(null);
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [uploadingResourceIndex, setUploadingResourceIndex] = useState(null);
   const [isDeletingId, setIsDeletingId] = useState(null);
   const [openActionsCourseId, setOpenActionsCourseId] = useState(null);
 
@@ -24,10 +24,69 @@ const MyCourses = () => {
     discount: "",
     is_published: true,
     course_content: [],
+    resources: [],
   });
 
   const actionButtonBase =
     "px-3 py-2 rounded-lg text-white text-sm font-medium transition-colors duration-200 disabled:cursor-not-allowed";
+
+  const createResource = () => ({
+    resourceType: "link",
+    title: "",
+    url: "",
+    description: "",
+    blobSignedId: "",
+    fileName: "",
+    contentType: "",
+    fileSize: 0,
+  });
+
+  const uploadResourceFile = async (resourceIndex, file) => {
+    if (!file) return;
+
+    try {
+      setUploadingResourceIndex(resourceIndex);
+
+      const uploadFormData = new FormData();
+      uploadFormData.append("resource_file", file);
+
+      const { data } = await axios.post(`${backendURL}/educators/upload_resource_file`, uploadFormData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (!data.success) {
+        toast.error(data.message || "Failed to upload resource file");
+        return;
+      }
+
+      setFormData((previous) => {
+        const resources = [...previous.resources];
+        const existing = resources[resourceIndex] || createResource();
+
+        resources[resourceIndex] = {
+          ...existing,
+          url: data.file.url,
+          blobSignedId: data.file.blobSignedId || "",
+          fileName: data.file.fileName || "",
+          contentType: data.file.contentType || "",
+          fileSize: Number(data.file.fileSize) || 0,
+          resourceType: data.file.resourceType || existing.resourceType,
+          title: existing.title.trim() ? existing.title : (data.file.fileName || ""),
+        };
+
+        return { ...previous, resources };
+      });
+
+      toast.success("Resource file uploaded");
+    } catch (uploadError) {
+      toast.error(uploadError.response?.data?.message || "Failed to upload resource file");
+    } finally {
+      setUploadingResourceIndex(null);
+    }
+  };
 
   const fetchEducatorCourses = async () => {
     try {
@@ -99,6 +158,18 @@ const MyCourses = () => {
         discount: course.discount || 0,
         is_published: course.is_published ?? true,
         course_content: mapCourseContentForEdit(course.chapters),
+        resources: Array.isArray(course.resources)
+          ? course.resources.map((resource) => ({
+              resourceType: resource.resourceType || resource.resource_type || "link",
+              title: resource.title || "",
+              url: resource.url || "",
+              description: resource.description || "",
+              blobSignedId: resource.blobSignedId || "",
+              fileName: resource.fileName || "",
+              contentType: resource.contentType || "",
+              fileSize: Number(resource.fileSize) || 0,
+            }))
+          : [],
       });
     } catch (editError) {
       toast.error(editError.response?.data?.message || "Failed to load course details");
@@ -116,24 +187,25 @@ const MyCourses = () => {
       discount: "",
       is_published: true,
       course_content: [],
+      resources: [],
     });
   };
 
   const updateChapterField = (chapterIndex, key, value) => {
-    setFormData((prev) => {
-      const next = [...prev.course_content];
+    setFormData((previous) => {
+      const next = [...previous.course_content];
       next[chapterIndex] = { ...next[chapterIndex], [key]: value };
-      return { ...prev, course_content: next };
+      return { ...previous, course_content: next };
     });
   };
 
   const addChapter = () => {
-    setFormData((prev) => ({
-      ...prev,
+    setFormData((previous) => ({
+      ...previous,
       course_content: [
-        ...prev.course_content,
+        ...previous.course_content,
         {
-          chapterOrder: prev.course_content.length + 1,
+          chapterOrder: previous.course_content.length + 1,
           chapterTitle: "New Chapter",
           chapterContent: [],
         },
@@ -142,43 +214,42 @@ const MyCourses = () => {
   };
 
   const removeChapter = (chapterIndex) => {
-    setFormData((prev) => {
-      const next = prev.course_content.filter((_, i) => i !== chapterIndex);
+    setFormData((previous) => {
+      const next = previous.course_content.filter((_, index) => index !== chapterIndex);
       return {
-        ...prev,
-        course_content: next.map((chapter, idx) => ({
+        ...previous,
+        course_content: next.map((chapter, index) => ({
           ...chapter,
-          chapterOrder: idx + 1,
+          chapterOrder: index + 1,
         })),
       };
     });
   };
 
   const addLecture = (chapterIndex) => {
-    setFormData((prev) => {
-      const next = [...prev.course_content];
-      const chapter = next[chapterIndex];
-      const lectures = chapter.chapterContent || [];
+    setFormData((previous) => {
+      const next = [...previous.course_content];
+      const chapter = { ...next[chapterIndex] };
+      const lectures = [...(chapter.chapterContent || [])];
 
-      chapter.chapterContent = [
-        ...lectures,
-        {
-          lectureOrder: lectures.length + 1,
-          lectureTitle: "New Lecture",
-          lectureDuration: 10,
-          lectureUrl: "",
-          isPreviewFree: false,
-        },
-      ];
+      lectures.push({
+        lectureOrder: lectures.length + 1,
+        lectureTitle: "New Lecture",
+        lectureDuration: 10,
+        lectureUrl: "",
+        isPreviewFree: false,
+      });
 
+      chapter.chapterContent = lectures;
       next[chapterIndex] = chapter;
-      return { ...prev, course_content: next };
+
+      return { ...previous, course_content: next };
     });
   };
 
   const updateLectureField = (chapterIndex, lectureIndex, key, value) => {
-    setFormData((prev) => {
-      const next = [...prev.course_content];
+    setFormData((previous) => {
+      const next = [...previous.course_content];
       const chapter = { ...next[chapterIndex] };
       const lectures = [...(chapter.chapterContent || [])];
 
@@ -190,28 +261,50 @@ const MyCourses = () => {
       chapter.chapterContent = lectures;
       next[chapterIndex] = chapter;
 
-      return { ...prev, course_content: next };
+      return { ...previous, course_content: next };
     });
   };
 
   const removeLecture = (chapterIndex, lectureIndex) => {
-    setFormData((prev) => {
-      const next = [...prev.course_content];
+    setFormData((previous) => {
+      const next = [...previous.course_content];
       const chapter = { ...next[chapterIndex] };
-      const lectures = (chapter.chapterContent || []).filter((_, i) => i !== lectureIndex);
+      const lectures = (chapter.chapterContent || []).filter((_, index) => index !== lectureIndex);
 
-      chapter.chapterContent = lectures.map((lecture, idx) => ({
+      chapter.chapterContent = lectures.map((lecture, index) => ({
         ...lecture,
-        lectureOrder: idx + 1,
+        lectureOrder: index + 1,
       }));
 
       next[chapterIndex] = chapter;
-      return { ...prev, course_content: next };
+      return { ...previous, course_content: next };
     });
   };
 
-  const handleUpdateCourse = async (e) => {
-    e.preventDefault();
+  const addResource = () => {
+    setFormData((previous) => ({
+      ...previous,
+      resources: [...previous.resources, createResource()],
+    }));
+  };
+
+  const updateResourceField = (resourceIndex, key, value) => {
+    setFormData((previous) => {
+      const resources = [...previous.resources];
+      resources[resourceIndex] = { ...resources[resourceIndex], [key]: value };
+      return { ...previous, resources };
+    });
+  };
+
+  const removeResource = (resourceIndex) => {
+    setFormData((previous) => ({
+      ...previous,
+      resources: previous.resources.filter((_, index) => index !== resourceIndex),
+    }));
+  };
+
+  const handleUpdateCourse = async (event) => {
+    event.preventDefault();
     if (!editingCourse) return;
 
     if (!formData.course_title.trim()) {
@@ -233,6 +326,9 @@ const MyCourses = () => {
         course_price: Number(formData.course_price),
         discount: Number(formData.discount),
         is_published: !!formData.is_published,
+        resources: formData.resources.filter((resource) =>
+          resource.title.trim() || resource.url.trim() || resource.description.trim() || resource.fileName.trim() || resource.blobSignedId.trim()
+        ),
         course_content: formData.course_content,
       };
 
@@ -262,7 +358,9 @@ const MyCourses = () => {
   };
 
   const handleDeleteCourse = async (courseId) => {
-    const confirmed = window.confirm("Are you sure you want to delete this course? This cannot be undone.");
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this course? This cannot be undone."
+    );
     if (!confirmed) return;
 
     try {
@@ -286,7 +384,6 @@ const MyCourses = () => {
       setIsDeletingId(null);
     }
   };
-
 
   if (loading) {
     return (
@@ -314,90 +411,91 @@ const MyCourses = () => {
             const enrolledCount = course.enrolled_students_count || 0;
 
             return (
-            <div
-              key={course.id}
-              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
-            >
-              {course.thumbnail_url ? (
-                <img
-                  src={course.thumbnail_url}
-                  alt={course.course_title}
-                  className="w-full h-48 object-cover"
-                />
-              ) : (
-                <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500">No thumbnail</span>
-                </div>
-              )}
-
-              <div className="p-6">
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                  {course.course_title}
-                </h2>
-
-                <p className="text-gray-600 mb-4 line-clamp-3">
-                  {course.course_description && typeof course.course_description === "string"
-                    ? course.course_description.replace(/<[^>]+>/g, "")
-                    : "No description available"}
-                </p>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-blue-600">₹{course.course_price}</span>
-                  <span className="text-sm text-gray-500">{course.discount}% off</span>
-                </div>
-
-                <div className="mt-4 flex justify-between items-center gap-2">
-                  <span className="text-sm font-medium text-gray-600">
-                    {enrolledCount} Enrolled
-                  </span>
-
-                  <button
-                    onClick={() =>
-                      setOpenActionsCourseId((prev) => (prev === course.id ? null : course.id))
-                    }
-                    className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
-                  >
-                    {openActionsCourseId === course.id ? "Close Actions" : "Actions"}
-                  </button>
-                </div>
-
-                {openActionsCourseId === course.id && (
-                  <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => openEditModal(course.id)}
-                        className={`${actionButtonBase} bg-emerald-600 hover:bg-emerald-700`}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => handleDeleteCourse(course.id)}
-                        disabled={isDeletingId === course.id}
-                        className={`${actionButtonBase} bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300`}
-                      >
-                        {isDeletingId === course.id ? "Deleting..." : "Delete"}
-                      </button>
-
-                      <Link
-                        to={`/educator/students-enrolled?courseId=${course.id}&courseTitle=${encodeURIComponent(course.course_title)}`}
-                        className="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
-                      >
-                        Students
-                      </Link>
-
-                      <Link
-                        to={`/course/${course.id}`}
-                        className="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
-                      >
-                        View Course
-                      </Link>
-                    </div>
+              <div
+                key={course.id}
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+              >
+                {course.thumbnail_url ? (
+                  <img
+                    src={course.thumbnail_url}
+                    alt={course.course_title}
+                    className="w-full h-48 object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                    <span className="text-gray-500">No thumbnail</span>
                   </div>
                 )}
+
+                <div className="p-6">
+                  <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                    {course.course_title}
+                  </h2>
+
+                  <p className="text-gray-600 mb-4 line-clamp-3">
+                    {course.course_description && typeof course.course_description === "string"
+                      ? course.course_description.replace(/<[^>]+>/g, "")
+                      : "No description available"}
+                  </p>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold text-blue-600">₹{course.course_price}</span>
+                    <span className="text-sm text-gray-500">{course.discount}% off</span>
+                  </div>
+
+                  <div className="mt-4 flex justify-between items-center gap-2">
+                    <span className="text-sm font-medium text-gray-600">{enrolledCount} Enrolled</span>
+
+                    <button
+                      onClick={() =>
+                        setOpenActionsCourseId((previous) => (previous === course.id ? null : course.id))
+                      }
+                      className="px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
+                    >
+                      {openActionsCourseId === course.id ? "Close Actions" : "Actions"}
+                    </button>
+                  </div>
+
+                  {openActionsCourseId === course.id && (
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => openEditModal(course.id)}
+                          className={`${actionButtonBase} bg-emerald-600 hover:bg-emerald-700`}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteCourse(course.id)}
+                          disabled={isDeletingId === course.id}
+                          className={`${actionButtonBase} bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300`}
+                        >
+                          {isDeletingId === course.id ? "Deleting..." : "Delete"}
+                        </button>
+
+                        <Link
+                          to={`/educator/students-enrolled?courseId=${course.id}&courseTitle=${encodeURIComponent(
+                            course.course_title
+                          )}`}
+                          className="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
+                        >
+                          Students
+                        </Link>
+
+                        <Link
+                          to={`/course/${course.id}`}
+                          className="inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors duration-200"
+                        >
+                          View Course
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )})}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-8">
@@ -427,7 +525,7 @@ const MyCourses = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                   <input
                     value={formData.course_title}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, course_title: e.target.value }))}
+                    onChange={(e) => setFormData((previous) => ({ ...previous, course_title: e.target.value }))}
                     className="w-full border rounded px-3 py-2"
                     required
                   />
@@ -437,7 +535,9 @@ const MyCourses = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                   <textarea
                     value={formData.course_description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, course_description: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((previous) => ({ ...previous, course_description: e.target.value }))
+                    }
                     rows={4}
                     className="w-full border rounded px-3 py-2"
                     required
@@ -451,7 +551,7 @@ const MyCourses = () => {
                       type="number"
                       min="0"
                       value={formData.course_price}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, course_price: e.target.value }))}
+                      onChange={(e) => setFormData((previous) => ({ ...previous, course_price: e.target.value }))}
                       className="w-full border rounded px-3 py-2"
                       required
                     />
@@ -464,7 +564,7 @@ const MyCourses = () => {
                       min="0"
                       max="100"
                       value={formData.discount}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, discount: e.target.value }))}
+                      onChange={(e) => setFormData((previous) => ({ ...previous, discount: e.target.value }))}
                       className="w-full border rounded px-3 py-2"
                       required
                     />
@@ -475,7 +575,7 @@ const MyCourses = () => {
                   <input
                     type="checkbox"
                     checked={!!formData.is_published}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, is_published: e.target.checked }))}
+                    onChange={(e) => setFormData((previous) => ({ ...previous, is_published: e.target.checked }))}
                   />
                   <span className="text-sm text-gray-700">Published</span>
                 </label>
@@ -639,6 +739,116 @@ const MyCourses = () => {
                     ))}
                   </div>
                 </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center mb-3 gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">Course Resources</h3>
+                      <p className="text-sm text-gray-500">
+                        Add links, textbooks, videos, or files that support the lessons.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addResource}
+                      className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      + Add Resource
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {formData.resources.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                        No resources have been added yet.
+                      </div>
+                    ) : (
+                      formData.resources.map((resource, resourceIndex) => (
+                        <div key={`resource-${resourceIndex}`} className="border rounded-lg p-4 bg-gray-50 space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="grid flex-1 grid-cols-1 md:grid-cols-4 gap-2">
+                              <div>
+                                <label className="block text-xs text-gray-600 mb-1">Type</label>
+                                <select
+                                  value={resource.resourceType}
+                                  onChange={(e) => updateResourceField(resourceIndex, "resourceType", e.target.value)}
+                                  className="w-full border rounded px-3 py-2"
+                                >
+                                  <option value="link">Link</option>
+                                  <option value="textbook">Textbook</option>
+                                  <option value="video">Video</option>
+                                  <option value="file">File</option>
+                                  <option value="image">Image</option>
+                                </select>
+                              </div>
+
+                              <div className="md:col-span-3">
+                                <label className="block text-xs text-gray-600 mb-1">Title</label>
+                                <input
+                                  value={resource.title}
+                                  onChange={(e) => updateResourceField(resourceIndex, "title", e.target.value)}
+                                  className="w-full border rounded px-3 py-2"
+                                  placeholder="Resource title"
+                                />
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removeResource(resourceIndex)}
+                              className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                            >
+                              Remove
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">URL</label>
+                              <input
+                                value={resource.url}
+                                onChange={(e) => updateResourceField(resourceIndex, "url", e.target.value)}
+                                className="w-full border rounded px-3 py-2"
+                                placeholder="https://..."
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">Description</label>
+                              <input
+                                value={resource.description}
+                                onChange={(e) => updateResourceField(resourceIndex, "description", e.target.value)}
+                                className="w-full border rounded px-3 py-2"
+                                placeholder="Optional description"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">Upload File</label>
+                              <input
+                                type="file"
+                                onChange={(e) => uploadResourceFile(resourceIndex, e.target.files?.[0])}
+                                className="w-full border rounded px-3 py-2"
+                              />
+                            </div>
+
+                            <div className="text-xs text-gray-600 flex flex-col justify-center">
+                              {uploadingResourceIndex === resourceIndex ? (
+                                <span className="text-blue-600">Uploading file...</span>
+                              ) : resource.fileName ? (
+                                <span>Uploaded: {resource.fileName}</span>
+                              ) : (
+                                <span>Upload is optional. If uploaded, URL is auto-filled.</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </>
             )}
 
@@ -661,7 +871,6 @@ const MyCourses = () => {
           </form>
         </div>
       )}
-
     </div>
   );
 };

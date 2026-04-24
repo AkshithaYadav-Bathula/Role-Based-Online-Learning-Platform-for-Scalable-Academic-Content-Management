@@ -9,6 +9,8 @@ class UsersController < ApplicationController
   ]
 
   def get_user_data
+    ensure_streak_missed_notification!
+
     render json: { success: true, user: current_user }
   end
 
@@ -179,6 +181,8 @@ class UsersController < ApplicationController
   end
 
   def notifications
+    ensure_streak_missed_notification!
+
     notifications = current_user.notifications.includes(:actor, :course)
                                 .order(created_at: :desc)
                                 .limit(25)
@@ -448,6 +452,8 @@ class UsersController < ApplicationController
       progress.save
     end
 
+    register_learning_activity!
+
     render json: {
       success: true,
       message: "Lecture marked as completed successfully"
@@ -467,6 +473,7 @@ class UsersController < ApplicationController
     )
 
     progress_data.lecture_completed ||= []
+    register_learning_activity!
 
     render json: {
       success: true,
@@ -524,6 +531,46 @@ class UsersController < ApplicationController
   end
 
   private
+
+  def register_learning_activity!
+    today = Time.zone.today
+    last_learning_on = current_user.last_learning_on
+
+    if last_learning_on == today
+      return
+    end
+
+    new_streak =
+      if last_learning_on == today - 1
+        current_user.learning_streak.to_i + 1
+      else
+        1
+      end
+
+    current_user.update!(
+      learning_streak: new_streak,
+      last_learning_on: today,
+      streak_missed_notified_on: nil
+    )
+  end
+
+  def ensure_streak_missed_notification!
+    today = Time.zone.today
+    last_learning_on = current_user.last_learning_on
+
+    return if last_learning_on.nil?
+    return if last_learning_on >= today - 1
+    return if current_user.streak_missed_notified_on == today
+
+    Notification.create!(
+      user_id: current_user.id,
+      kind: "streak_missed",
+      title: "You missed your learning streak yesterday",
+      message: "Come back today to restart your streak and keep learning momentum."
+    )
+
+    current_user.update_column(:streak_missed_notified_on, today)
+  end
 
   def configure_stripe
     Stripe.api_key = ENV["STRIPE_SECRET_KEY"]

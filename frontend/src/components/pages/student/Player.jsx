@@ -139,7 +139,7 @@ const Player = () => {
     try {
       let candidateCourses = Array.isArray(enrolledCourses) ? enrolledCourses : [];
 
-      if (candidateCourses.length === 0 && fetchUserEnrolledCourses) {
+      if (fetchUserEnrolledCourses) {
         const fetchedCourses = await fetchUserEnrolledCourses();
         if (Array.isArray(fetchedCourses)) {
           candidateCourses = fetchedCourses;
@@ -182,6 +182,8 @@ const Player = () => {
       setProgressData(
         data.progressData || { lecture_completed: [] }
       );
+
+      setLastRefreshed(Date.now());
 
     } catch (error) {
 
@@ -228,6 +230,17 @@ const Player = () => {
         `${msg}: ${error.message}`
       );
     }
+  };
+
+  const handleOpenResource = (resource) => {
+    const resourceUrl = resource?.url?.trim();
+
+    if (!resourceUrl) {
+      toast.error("No link is available for this resource yet.");
+      return;
+    }
+
+    window.open(resourceUrl, "_blank", "noopener,noreferrer");
   };
 
 
@@ -517,6 +530,7 @@ const Player = () => {
     (count, chapter) => count + (chapter.lectures?.length || 0),
     0
   );
+  const courseResources = Array.isArray(courseData?.resources) ? courseData.resources : [];
 
   const completedLectureIds = new Set(
     (progressData?.lecture_completed || []).map((lectureId) => String(lectureId))
@@ -712,6 +726,50 @@ const Player = () => {
                 </div>
               )}
             </div>
+
+            {courseResources.length > 0 && (
+              <div className="bg-white rounded-lg shadow-lg p-6 mt-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Course Resources</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Reference links, books, and extra media shared by the instructor.
+                </p>
+
+                <div className="space-y-3">
+                  {courseResources.map((resource, index) => (
+                    <div key={`${resource.title || 'resource'}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{resource.title || resource.fileName || resource.file_name || `Resource ${index + 1}`}</p>
+                          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                            {(resource.resourceType || resource.resource_type || 'link').toString().replace('_', ' ')}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenResource(resource)}
+                          className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+                        >
+                          Open
+                        </button>
+                      </div>
+
+                      {!resource.url && (
+                        <p className="mt-2 text-xs text-amber-700">
+                          No link is available for this resource yet.
+                        </p>
+                      )}
+
+                      {resource.description && (
+                        <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">
+                          {resource.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 shadow-xl">
               <div className="flex flex-col gap-6 px-6 py-6 text-white md:flex-row md:items-center md:justify-between md:px-8">

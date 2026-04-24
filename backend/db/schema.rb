@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_04_03_233000) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_24_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -109,6 +109,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_03_233000) do
     t.uuid "educator_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "resources", default: [], null: false
   end
 
   create_table "lectures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -165,6 +166,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_03_233000) do
     t.string "role", default: "student", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "learning_streak", default: 0, null: false
+    t.date "last_learning_on"
+    t.date "streak_missed_notified_on"
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 

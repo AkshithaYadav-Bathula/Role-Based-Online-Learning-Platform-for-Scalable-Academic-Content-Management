@@ -15,6 +15,9 @@ class Course < ApplicationRecord
 
   has_one_attached :thumbnail
 
+  # Supplemental course resources such as links, textbooks, files, or videos.
+  attribute :resources, :json, default: []
+
   validates :course_title, presence: true
   validates :course_description, presence: true
   validates :course_price, presence: true, 

@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   get 'educators/dashboard_data', to: 'educators#dashboard_data'
   get 'educators/enrolled_students', to: 'educators#get_enrolled_students_data'
   post 'educators/add_course', to: 'educators#add_course'
+  post 'educators/upload_resource_file', to: 'educators#upload_resource_file'
   get 'educators/courses/:id', to: 'educators#course_details'
   put 'educators/courses/:id', to: 'educators#update_course'
   delete 'educators/courses/:id', to: 'educators#delete_course'

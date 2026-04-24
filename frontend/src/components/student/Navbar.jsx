@@ -4,7 +4,7 @@ import { assets } from "../../assets/assets";
 import { AppContext } from "../../context/AppContext";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Bell, Moon, Sun } from "lucide-react";
+import { Bell, Moon, Sun, Flame } from "lucide-react";
 
 const Navbar = () => {
   const location = useLocation();
@@ -23,6 +23,7 @@ const Navbar = () => {
     markAllNotificationsRead,
     theme,
     toggleTheme,
+    learningStreak,
   } = useContext(AppContext);
   const [showNotifications, setShowNotifications] = useState(false);
   const isCourseListPage = location.pathname.includes("/course-list");
@@ -53,6 +54,11 @@ const Navbar = () => {
     }
 
     setShowNotifications(false);
+
+    if (notification.kind === "streak_missed") {
+      navigate("/my-enrollments");
+      return;
+    }
 
     const courseId = notification.course_id;
     const isUuid = typeof courseId === "string" && /^[0-9a-fA-F-]{36}$/.test(courseId);
@@ -193,6 +199,10 @@ const Navbar = () => {
             <span className="text-gray-600">
               {JSON.parse(localStorage.getItem("user"))?.name}
             </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">
+              <Flame className="h-3.5 w-3.5" />
+              {learningStreak} day streak
+            </span>
             <button
               onClick={handleLogout}
               className="bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors"
@@ -247,6 +257,10 @@ const Navbar = () => {
             </button>
             <span className="text-sm text-gray-600">
               {JSON.parse(localStorage.getItem("user"))?.name}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] font-semibold text-orange-700">
+              <Flame className="h-3 w-3" />
+              {learningStreak}d
             </span>
             <button
               onClick={handleLogout}

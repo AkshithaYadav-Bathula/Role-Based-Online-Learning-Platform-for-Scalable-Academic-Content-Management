@@ -252,6 +252,10 @@ export const AppContextProvider = (props) => {
             await fetchAllCourses();
         }
 
+        if (token) {
+            await refreshUserData();
+        }
+
         if (token && user && !isLoadingEnrolledCourses) {
             await fetchUserEnrolledCourses();
         }
@@ -264,7 +268,12 @@ export const AppContextProvider = (props) => {
     };
 }, [
     token,
-    user
+    user,
+    dataLoaded,
+    fetchAllCourses,
+    refreshUserData,
+    isLoadingEnrolledCourses,
+    fetchUserEnrolledCourses
 ]);
     // Handle manual refresh requests
     useEffect(() => {
@@ -410,6 +419,7 @@ export const AppContextProvider = (props) => {
         token,
         user,
         setUser,
+        learningStreak: user?.learning_streak || 0,
         theme,
         toggleTheme,
         refreshUserData,

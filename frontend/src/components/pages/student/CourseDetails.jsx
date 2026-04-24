@@ -25,6 +25,7 @@ const CourseDetails = () => {
 
   const {
     allCourses,
+    enrolledCourses,
     calculateRating,
     calculateChapterTime,
     calculateCourseTime,
@@ -132,11 +133,16 @@ const CourseDetails = () => {
 
   useEffect(() => {
     if (user && courseData) {
-      // Check if user is already enrolled in this course
-      const enrolledCourseIds = user.enrolled_courses?.map(course => course.id) || [];
-      setIsAlreadyEnrolled(enrolledCourseIds.includes(courseData.id));
+      // Check enrollment against both user payload and synced context state.
+      const userEnrolledIds = (user.enrolled_courses || []).map((course) => Number(course.id));
+      const contextEnrolledIds = (enrolledCourses || []).map((course) =>
+        Number(course.id || course.course_id)
+      );
+
+      const enrolledSet = new Set([...userEnrolledIds, ...contextEnrolledIds]);
+      setIsAlreadyEnrolled(enrolledSet.has(Number(courseData.id)));
     }
-  }, [user, courseData]);
+  }, [user, courseData, enrolledCourses]);
 
   const courseEducatorId = courseData?.educator_id || courseData?.educator?.id;
   const isCourseEducator = !!user && !!courseEducatorId && String(user.id) === String(courseEducatorId);
@@ -234,7 +240,9 @@ const CourseDetails = () => {
   const educatorName = courseData.educator?.name || "Unknown Educator";
   const courseContent = courseData.chapters || [];
   const courseRatings = courseData.course_ratings || [];
+  const courseResources = Array.isArray(courseData.resources) ? courseData.resources : [];
   const canAccessDoubts = isAlreadyEnrolled || isCourseEducator;
+  const canViewResources = isAlreadyEnrolled || isCourseEducator;
 
 
   const toggleSection = (index) => {
@@ -242,6 +250,17 @@ const CourseDetails = () => {
       ...prev,
       [index]: !prev[index],
     }));
+  };
+
+  const handleOpenResource = (resource) => {
+    const resourceUrl = resource?.url?.trim();
+
+    if (!resourceUrl) {
+      toast.error("No link is available for this resource yet.");
+      return;
+    }
+
+    window.open(resourceUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -381,6 +400,46 @@ const CourseDetails = () => {
               }}
             />
           </div>
+
+          {canViewResources && courseResources.length > 0 && (
+            <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Learning extras</p>
+              <h3 className="mt-1 text-xl font-semibold text-slate-900">Course Resources</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Use these references to explore the topic more deeply.
+              </p>
+
+              <div className="mt-4 grid gap-3">
+                {courseResources.map((resource, index) => (
+                  <div key={`${resource.title || 'resource'}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{resource.title || `Resource ${index + 1}`}</p>
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                          {(resource.resourceType || resource.resource_type || 'link').toString().replace('_', ' ')}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenResource(resource)}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+                      >
+                        Open Resource
+                      </button>
+                    </div>
+
+                    {resource.description && (
+                      <p className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">
+                        {resource.description}
+                      </p>
+                    )}
+
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {canViewAnnouncements && (
             <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

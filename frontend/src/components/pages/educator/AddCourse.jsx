@@ -20,12 +20,71 @@ const AddCourse = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [currentChapterId, setCurrentChapterId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [resources, setResources] = useState([]);
+  const [uploadingResourceIndex, setUploadingResourceIndex] = useState(null);
   const [lectureDetails, setLectureDetails] = useState({
     lectureTitle: "",
     lectureDuration: "",
     lectureUrl: "",
     isPreviewFree: false,
   });
+
+  const createResource = () => ({
+    resourceType: "link",
+    title: "",
+    url: "",
+    description: "",
+    blobSignedId: "",
+    fileName: "",
+    contentType: "",
+    fileSize: 0,
+  });
+
+  const uploadResourceFile = async (resourceIndex, file) => {
+    if (!file) return;
+
+    try {
+      setUploadingResourceIndex(resourceIndex);
+
+      const uploadFormData = new FormData();
+      uploadFormData.append("resource_file", file);
+
+      const { data } = await axios.post(`${backendURL}/educators/upload_resource_file`, uploadFormData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (!data.success) {
+        toast.error(data.message || "Failed to upload resource file");
+        return;
+      }
+
+      setResources((previous) =>
+        previous.map((resource, index) => {
+          if (index !== resourceIndex) return resource;
+
+          return {
+            ...resource,
+            url: data.file.url,
+            blobSignedId: data.file.blobSignedId || "",
+            fileName: data.file.fileName || "",
+            contentType: data.file.contentType || "",
+            fileSize: Number(data.file.fileSize) || 0,
+            resourceType: data.file.resourceType || resource.resourceType,
+            title: resource.title.trim() ? resource.title : (data.file.fileName || ""),
+          };
+        })
+      );
+
+      toast.success("Resource file uploaded");
+    } catch (uploadError) {
+      toast.error(uploadError.response?.data?.message || "Failed to upload resource file");
+    } finally {
+      setUploadingResourceIndex(null);
+    }
+  };
 
   const handleSubmit = async(e) => {
    try{
@@ -59,6 +118,9 @@ const AddCourse = () => {
       course_description: quillRef.current.root.innerHTML,
       course_price: Number(coursePrice),
       discount: Number(discount),
+      resources: resources.filter((resource) =>
+        resource.title.trim() || resource.url.trim() || resource.description.trim() || resource.fileName.trim() || resource.blobSignedId.trim()
+      ),
       course_content: chapters,
     }
     
@@ -84,6 +146,7 @@ const AddCourse = () => {
       setImage(null);
       quillRef.current.root.innerHTML = "";
       setChapters([]);
+      setResources([]);
       setShowPopup(false);                     
     }
     else{
@@ -97,6 +160,22 @@ const AddCourse = () => {
    finally {
      setIsLoading(false);
    }
+  };
+
+  const addResource = () => {
+    setResources((previous) => [...previous, createResource()]);
+  };
+
+  const updateResourceField = (resourceIndex, key, value) => {
+    setResources((previous) =>
+      previous.map((resource, index) =>
+        index === resourceIndex ? { ...resource, [key]: value } : resource
+      )
+    );
+  };
+
+  const removeResource = (resourceIndex) => {
+    setResources((previous) => previous.filter((_, index) => index !== resourceIndex));
   };
 
   const handleChapter = (action, chapterId) => {
@@ -289,6 +368,117 @@ const AddCourse = () => {
               className="outline-none md:py-2.5 w-28 px-3 rounded border border-gray-300"
               required
             />
+          </div>
+
+          {/* Supplemental Resources */}
+          <div className="border rounded-lg p-4 bg-slate-50 space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Course Resources</h3>
+                <p className="text-sm text-gray-500">
+                  Share textbooks, reference links, downloadable files, or extra videos with your learners.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addResource}
+                className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                + Add Resource
+              </button>
+            </div>
+
+            {resources.length === 0 ? (
+              <div className="rounded border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+                No resources added yet. Add a few links or references to make the course richer.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {resources.map((resource, resourceIndex) => (
+                  <div key={`resource-${resourceIndex}`} className="rounded-lg border bg-white p-3 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                          <select
+                            value={resource.resourceType}
+                            onChange={(e) => updateResourceField(resourceIndex, "resourceType", e.target.value)}
+                            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                          >
+                            <option value="link">Link</option>
+                            <option value="textbook">Textbook</option>
+                            <option value="video">Video</option>
+                            <option value="file">File</option>
+                            <option value="image">Image</option>
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-3">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+                          <input
+                            value={resource.title}
+                            onChange={(e) => updateResourceField(resourceIndex, "title", e.target.value)}
+                            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                            placeholder="e.g. Chapter 1 notes"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeResource(resourceIndex)}
+                        className="rounded bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Resource URL</label>
+                        <input
+                          value={resource.url}
+                          onChange={(e) => updateResourceField(resourceIndex, "url", e.target.value)}
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                        <input
+                          value={resource.description}
+                          onChange={(e) => updateResourceField(resourceIndex, "description", e.target.value)}
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                          placeholder="Optional notes about this resource"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Upload File</label>
+                        <input
+                          type="file"
+                          onChange={(e) => uploadResourceFile(resourceIndex, e.target.files?.[0])}
+                          className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </div>
+
+                      <div className="text-xs text-gray-600 flex flex-col justify-center">
+                        {uploadingResourceIndex === resourceIndex ? (
+                          <span className="text-blue-600">Uploading file...</span>
+                        ) : resource.fileName ? (
+                          <span>Uploaded: {resource.fileName}</span>
+                        ) : (
+                          <span>Upload is optional. If uploaded, URL is auto-filled.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Chapters and Lectures */}
