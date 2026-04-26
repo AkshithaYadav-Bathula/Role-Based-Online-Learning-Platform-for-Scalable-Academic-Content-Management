@@ -60,6 +60,12 @@ Tracks completed lectures, remaining lectures, and course completion percentage 
 
 ---
 
+### Payments (Stripe)
+
+Course enrollment is gated behind a Stripe payment flow. Students are redirected to a Stripe checkout page and gain access immediately after successful payment.
+
+---
+
 ### Discussions
 
 Students can post doubts, reply to others, and upvote questions. Educators can respond directly. Upvotes surface the most common issues.
@@ -107,6 +113,7 @@ The tutor can answer lecture-specific questions, summarize topics, and simplify 
 |---|---|
 | Frontend | React, Vite, Tailwind CSS, React Router, Axios |
 | Backend API | Ruby on Rails, JWT, REST, ActiveStorage |
+| Payments | Stripe |
 | AI Service | Python, FastAPI, LangChain, ChromaDB, youtube_transcript_api |
 | Vector DB | ChromaDB |
 | LLM Runtime | Ollama – Llama 3.2 (local) |
@@ -115,18 +122,67 @@ The tutor can answer lecture-specific questions, summarize topics, and simplify 
 
 ## Screenshots
 
-| | |
-|---|---|
-| ![Dashboard](https://github.com/user-attachments/assets/89fa775e-5700-4518-b4c1-b154a01bf3f6) | ![Course Structure](https://github.com/user-attachments/assets/9dbe09c3-4485-4110-9b83-35ede16898e1) |
-| Dashboard | Course Structure |
-| ![Lecture View](https://github.com/user-attachments/assets/f14c778f-675c-469c-8a22-abc94c66ac68) | ![Course Navigation](https://github.com/user-attachments/assets/9d385ca7-44ab-4b2d-98e7-a88e779f4d40) |
-| Lecture View | Course Navigation |
-| ![Discussions](https://github.com/user-attachments/assets/7cb74feb-db2b-44e9-8e6d-cc4f9d38408a) | ![Progress Tracking](https://github.com/user-attachments/assets/98caf5a6-333a-4e9e-8975-c30df979261c) |
-| Discussion System | Progress Tracking |
-| ![AI Tutor](https://github.com/user-attachments/assets/f766dc31-2388-42d1-8e2b-4d7c47e125cb) | ![Educator Dashboard](https://github.com/user-attachments/assets/3e15175c-1d83-4625-9f5c-12abede15769) |
-| AI Tutor Panel | Educator Dashboard |
-| ![Announcements](https://github.com/user-attachments/assets/248828f9-5ea4-4399-a5f6-c62dc5611610) | ![Ratings](https://github.com/user-attachments/assets/cd2596b5-959c-44e6-974c-569139dc172c) |
-| Announcements | Ratings and Reviews |
+### Student Flow
+
+**Login / Signup**
+
+![Login Signup](https://github.com/user-attachments/assets/2b400410-cf4b-4d65-b9a6-de001ef91017)
+
+**Course Browsing and Navigation**
+
+![Course Navigation](https://github.com/user-attachments/assets/993ab9e1-3951-4a60-9510-383d7ef89267)
+
+**Enroll in a Course**
+
+![Enroll](https://github.com/user-attachments/assets/a3abe28f-c419-4d7b-acb1-30f6bac93ca5)
+
+**Stripe Payment**
+
+![Stripe Payment](https://github.com/user-attachments/assets/6bf98026-681b-4fcd-b76c-f268723e6a8e)
+
+**After Enrollment — Course Access**
+
+![After Enrollment](https://github.com/user-attachments/assets/f44aafdb-4600-4125-9364-570b4c30da52)
+
+**Lecture View**
+
+![Lecture View](https://github.com/user-attachments/assets/247695a1-e730-4304-9831-879b46ccc231)
+
+**Q&A / Discussions**
+
+![Q and A](https://github.com/user-attachments/assets/13ebc97a-092a-4ebd-a628-6634d4d77b73)
+
+**Announcements**
+
+![Announcements](https://github.com/user-attachments/assets/3f34ac6c-0961-4e5e-b273-5c6932645244)
+
+**AI Chatbot and Resources**
+
+![AI Chatbot](https://github.com/user-attachments/assets/39698482-00bd-492a-92be-49609a1f0a33)
+
+**Notification Management**
+
+![Notifications](https://github.com/user-attachments/assets/bc45a66b-b6dc-4e7e-800e-beae78a2f62f)
+
+**Progress Tracking**
+
+![Progress Tracking](https://github.com/user-attachments/assets/669f97fd-df26-4ac1-b45f-546e32d61c5b)
+
+---
+
+### Educator Flow
+
+**Educator Dashboard**
+
+![Educator Dashboard](https://github.com/user-attachments/assets/f389c6d9-099c-442f-be28-1b49324ae748)
+
+**Adding a Course**
+
+![Adding Course](https://github.com/user-attachments/assets/df00308e-d46f-4393-89a3-f792a071ec5b)
+
+**Updating Course and Adding Lectures**
+
+![Updating Course](https://github.com/user-attachments/assets/69ede057-cb6d-4b38-bd25-e934ada2fb63)
 
 ---
 
