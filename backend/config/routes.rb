@@ -43,4 +43,6 @@ Rails.application.routes.draw do
   
   # Keep but might be unnecessary with new flow
   get '/success', to: 'users#verify_payment'
+  post 'ai/chat', to: 'ai#chat'
+  post 'ai/ingest', to: 'ai#ingest'
 end
