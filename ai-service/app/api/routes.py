@@ -1,12 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.core.config import settings
 from app.schemas.chat import ChatRequest, ChatResponse, IngestRequest, IngestResponse, SourceChunk
-from app.services.answering import build_answer
-from app.services.retrieval import chunk_text, rank_chunks
-from app.services.store import KnowledgeChunk, knowledge_base
+from app.services.assistant import get_course_ai_service
 
 router = APIRouter()
+service = get_course_ai_service()
 
 
 @router.get("/health")
@@ -16,37 +15,22 @@ def health_check() -> dict:
 
 @router.post("/v1/ingest", response_model=IngestResponse)
 def ingest_course_content(payload: IngestRequest) -> IngestResponse:
-    chunks = chunk_text(payload.content)
-    indexed_chunks = [
-        KnowledgeChunk(
-            course_id=payload.course_id,
-            text=chunk,
-            chunk_index=index,
-            source_label=payload.title or payload.source_type,
-            metadata={"source_type": payload.source_type, **payload.metadata},
-        )
-        for index, chunk in enumerate(chunks)
-    ]
-    count = knowledge_base.upsert_chunks(payload.course_id, indexed_chunks)
+    try:
+        result = service.ingest(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     return IngestResponse(
         success=True,
-        course_id=payload.course_id,
-        chunks_indexed=count,
-        message="Course content indexed successfully",
+        course_id=result.course_id,
+        chunks_indexed=result.chunks_indexed,
+        message=result.message,
     )
 
 
 @router.post("/v1/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest) -> ChatResponse:
-    course_chunks = knowledge_base.get_chunks(payload.course_id)
-    ranked_pairs = rank_chunks(payload.question, course_chunks)
-    ranked_chunks = [chunk for chunk, _ in ranked_pairs]
-    answer, used_general_fallback = build_answer(
-        question=payload.question,
-        mode=payload.mode,
-        retrieved_chunks=ranked_chunks,
-        general_fallback_enabled=settings.general_fallback_enabled,
-    )
+    result = service.chat(payload)
     retrieved_chunks = [
         SourceChunk(
             text=chunk.text,
@@ -54,13 +38,13 @@ def chat(payload: ChatRequest) -> ChatResponse:
             source_label=chunk.source_label,
             chunk_index=chunk.chunk_index,
         )
-        for chunk, score in ranked_pairs
+        for chunk, score in result.retrieved_chunks
     ]
     return ChatResponse(
         success=True,
-        answer=answer,
+        answer=result.answer,
         course_id=payload.course_id,
         mode=payload.mode,
-        used_general_fallback=used_general_fallback,
+        used_general_fallback=result.used_general_fallback,
         retrieved_chunks=retrieved_chunks,
     )

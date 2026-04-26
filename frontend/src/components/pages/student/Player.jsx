@@ -10,6 +10,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import CourseDoubtsPanel from '../../../components/course/CourseDoubtsPanel';
 import { downloadCourseCertificate } from '../../../utils/certificate';
+import AITutorPanel from '../../../components/course/AITutorPanel';
 
 const Player = () => {
 
@@ -827,6 +828,14 @@ const Player = () => {
                   ))}
                 </div>
               </div>
+            )}
+
+            {activeTab === 'learning-tools' && (
+              <AITutorPanel
+                courseId={courseData?.id}
+                courseTitle={courseData?.course_title}
+                sourceHint="Powered by AI Service"
+              />
             )}
 
             {activeTab === 'learning-tools' && courseResources.length === 0 && (

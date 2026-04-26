@@ -9,6 +9,7 @@ import Youtube from "react-youtube";
 import { toast } from "react-toastify";
 import axios from "axios";
 import CourseDoubtsPanel from "../../../components/course/CourseDoubtsPanel";
+import AITutorPanel from "../../../components/course/AITutorPanel";
 
 const CourseDetails = () => {
   const { id } = useParams();
@@ -586,6 +587,14 @@ const CourseDetails = () => {
               </div>
             </div>
           )}
+
+            {activeTab === "learning-tools" && canViewResources && (
+              <AITutorPanel
+                courseId={courseData?.id}
+                courseTitle={courseData?.course_title}
+                sourceHint="Powered by AI Service"
+              />
+            )}
 
           {activeTab === "learning-tools" && hasLearningAccess && courseResources.length === 0 && (
             <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">

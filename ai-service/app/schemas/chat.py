@@ -14,7 +14,8 @@ class IngestRequest(BaseModel):
     course_id: str = Field(..., min_length=1)
     title: Optional[str] = None
     source_type: Literal["text", "youtube", "pdf", "notes"] = "text"
-    content: str = Field(..., min_length=1)
+    content: Optional[str] = None
+    source_url: Optional[str] = None
     metadata: dict = Field(default_factory=dict)
 
 
