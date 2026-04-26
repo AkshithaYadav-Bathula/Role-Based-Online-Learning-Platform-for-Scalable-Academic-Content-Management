@@ -1,10 +1,10 @@
-##Role-Based Learning Management System with AI Assistant
+# Role-Based Learning Management System with AI Assistant
 
 This project is a role-based Learning Management System (LMS) that allows educators to create structured course content and students to learn through a course player with progress tracking, discussions, announcements, ratings, and an integrated AI tutoring assistant.
 
 The system includes AI service that processes lecture content and video transcripts and answers student questions using a Retrieval-Augmented Generation (RAG) pipeline powered by a local language model.
 
-##System Architecture 
+# System Architecture 
 Frontend (React)
         ↓
 Backend API (User + Course + Progress + Discussion + Purchase)
