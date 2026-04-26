@@ -1,3 +1,21 @@
+##Role-Based Learning Management System with AI Assistant
+
+This project is a role-based Learning Management System (LMS) that allows educators to create structured course content and students to learn through a course player with progress tracking, discussions, announcements, ratings, and an integrated AI tutoring assistant.
+
+The system includes AI service that processes lecture content and video transcripts and answers student questions using a Retrieval-Augmented Generation (RAG) pipeline powered by a local language model.
+
+##System Architecture 
+Frontend (React)
+        ↓
+Backend API (User + Course + Progress + Discussion + Purchase)
+        ↓
+AI Service (FastAPI)
+        ↓
+Vector Database (ChromaDB)
+        ↓
+Local LLM Runtime (Ollama – Llama 3.2)
+
+
 ![Screenshot 2025-04-11 231537](https://github.com/user-attachments/assets/89fa775e-5700-4518-b4c1-b154a01bf3f6)
 
 ![Screenshot 2025-04-11 231651](https://github.com/user-attachments/assets/9dbe09c3-4485-4110-9b83-35ede16898e1)
