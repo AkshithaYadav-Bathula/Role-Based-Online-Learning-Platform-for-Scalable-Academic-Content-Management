@@ -2,7 +2,6 @@ import React, { useContext, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { assets } from "../../assets/assets";
 import { AppContext } from "../../context/AppContext";
-import axios from "axios";
 import { toast } from "react-toastify";
 import { Bell, Moon, Sun, Flame } from "lucide-react";
 
@@ -10,9 +9,6 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const {
-    isEducator,
-    token,
-    backendURL,
     setIsEducator,
     setUser,
     setEnrolledCourses,
@@ -24,11 +20,12 @@ const Navbar = () => {
     theme,
     toggleTheme,
     learningStreak,
+    user,
   } = useContext(AppContext);
   const [showNotifications, setShowNotifications] = useState(false);
   const isCourseListPage = location.pathname.includes("/course-list");
   const isLoggedIn = localStorage.getItem("token") !== null;
-  console.log( `${backendURL}/users/update_role`)
+  const isInstructor = user?.role === "educator";
 
   const latestNotifications = useMemo(() => (notifications || []).slice(0, 8), [notifications]);
 
@@ -70,35 +67,6 @@ const Navbar = () => {
     }
   };
 
-  const becomeEducator = async () => {
-    try {
-      if (isEducator) {
-        navigate("/educator");
-        return;
-      }
-
-      const { data } = await axios.post(
-        `${backendURL}/users/update_role`,{},
-        
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (data.success) {
-        setIsEducator(true);
-        navigate("/educator");
-      } else {
-        toast.error(data.message || "Failed to become educator.");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.message || "An error occurred.");
-    }
-  };
-
   return (
     <div
       className={`flex items-center justify-between px-4 sm:px-10 md:px-14 lg:px-36 border-b border-gray-500 py-4 ${
@@ -119,10 +87,13 @@ const Navbar = () => {
         <div className="flex gap-2">
           {isLoggedIn && (
             <>
-              <button onClick={becomeEducator}>
-                {isEducator ? "Educator Dashboard" : "Become Educator"}
-              </button>
-              |<Link to="/my-enrollments">My Enrollments</Link>
+              {isInstructor && (
+                <>
+                  <button onClick={() => navigate("/educator")}>Educator Dashboard</button>
+                  |
+                </>
+              )}
+              {!isInstructor && <Link to="/my-enrollments">My Enrollments</Link>}
             </>
           )}
         </div>
@@ -225,10 +196,10 @@ const Navbar = () => {
         <div className="flex items-center gap-1 sm:gap-2 max-sm:text-xs">
           {isLoggedIn && (
             <>
-              <button onClick={becomeEducator}>
-                {isEducator ? "Educator Dashboard" : "Become Educator"}
-              </button>
-              <Link to="/my-enrollments">My Enrollments</Link>
+              {isInstructor && (
+                <button onClick={() => navigate("/educator")}>Educator Dashboard</button>
+              )}
+              {!isInstructor && <Link to="/my-enrollments">My Enrollments</Link>}
             </>
           )}
         </div>

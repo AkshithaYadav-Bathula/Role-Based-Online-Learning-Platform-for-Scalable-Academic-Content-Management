@@ -126,6 +126,12 @@ const PaymentPage = () => {
         navigate("/auth");
         return;
       }
+
+      if (user.role !== "student") {
+        toast.error("Unauthorized access. Instructors cannot enroll in courses.");
+        navigate(`/course/${courseId}`);
+        return;
+      }
       
       try {
         // Fetch course data

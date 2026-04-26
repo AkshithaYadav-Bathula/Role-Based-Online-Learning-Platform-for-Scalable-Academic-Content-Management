@@ -1,10 +1,22 @@
 class AuthController < ApplicationController
+  VALID_ROLES = %w[student educator].freeze
+
   skip_before_action :authenticate_user, only: [:login, :signup]
 
   def login
+    role = normalized_role(params[:role])
+    return render_invalid_role if role.nil?
+
     user = User.find_by(email: params[:email])
     
     if user&.authenticate(params[:password])
+      if user.role != role
+        return render json: {
+          success: false,
+          message: "This account is registered as #{user.role}. Please choose the correct role to continue."
+        }, status: :unauthorized
+      end
+
       token = encode_token({ user_id: user.id })
       render json: { 
         success: true, 
@@ -17,8 +29,10 @@ class AuthController < ApplicationController
   end
 
   def signup
-    user_params = params.permit(:name, :email, :password).merge(role: "student")  # Accept params directly
-    user = User.new(user_params)
+    role = normalized_role(params[:role])
+    return render_invalid_role if role.nil?
+
+    user = User.new(signup_params.merge(role: role))
   
     if user.save
       token = encode_token({ user_id: user.id })
@@ -35,7 +49,21 @@ class AuthController < ApplicationController
 
   private
 
-  def user_params
-    params.require(:user).permit(:name, :email, :password)  # Removed role from permitted params
+  def signup_params
+    params.permit(:name, :email, :password)
+  end
+
+  def normalized_role(raw_role)
+    role = raw_role.to_s.strip.downcase
+    return nil unless VALID_ROLES.include?(role)
+
+    role
+  end
+
+  def render_invalid_role
+    render json: {
+      success: false,
+      message: "Please choose a valid role: Student or Instructor"
+    }, status: :unprocessable_entity
   end
 end

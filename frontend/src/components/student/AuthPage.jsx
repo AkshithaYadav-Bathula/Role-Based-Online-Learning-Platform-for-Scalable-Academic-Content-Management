@@ -8,6 +8,7 @@ const AuthPage = () => {
   const backendURL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
   const { setUser, setIsEducator, setLastRefreshed } = useContext(AppContext);
   const [isLogin, setIsLogin] = useState(true);
+  const [selectedRole, setSelectedRole] = useState('student');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ const AuthPage = () => {
     setIsSubmitting(true);
     
     const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData);
+    const data = { ...Object.fromEntries(formData), role: selectedRole };
     
     try {
       const response = await fetch(`${backendURL}/${isLogin ? 'login' : 'signup'}`, {
@@ -83,6 +84,34 @@ const AuthPage = () => {
           )}
 
           <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Continue as</label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('student')}
+                  className={`rounded-md border px-3 py-2 text-sm font-medium transition ${
+                    selectedRole === 'student'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Student
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('educator')}
+                  className={`rounded-md border px-3 py-2 text-sm font-medium transition ${
+                    selectedRole === 'educator'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Instructor
+                </button>
+              </div>
+            </div>
+
             {!isLogin && (
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">

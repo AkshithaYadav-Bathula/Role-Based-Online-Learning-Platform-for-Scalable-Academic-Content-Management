@@ -1,6 +1,20 @@
 class UsersController < ApplicationController
   skip_before_action :authenticate_user, only: [:verify_payment]
 
+  before_action :ensure_student_access!, only: [
+    :get_enrolled_courses,
+    :get_announcements,
+    :course_doubts,
+    :create_course_doubt,
+    :toggle_course_doubt_upvote,
+    :create_payment_intent,
+    :complete_course_purchase,
+    :purchase_course,
+    :update_course_progress,
+    :get_course_progress,
+    :add_rating
+  ]
+
   before_action :configure_stripe, only: [
     :create_payment_intent,
     :complete_course_purchase,
@@ -401,6 +415,13 @@ class UsersController < ApplicationController
     user_id = decoded_token[0]["user_id"]
     user = User.find(user_id)
 
+    if user.role != "student"
+      return render json: {
+        success: false,
+        message: "Unauthorized access. This feature is available to students only."
+      }, status: :forbidden
+    end
+
     session = Stripe::Checkout::Session.retrieve(session_id)
 
     if session.payment_status != "paid"
@@ -517,6 +538,13 @@ class UsersController < ApplicationController
   end
 
   def update_role
+    if current_user.role == "educator"
+      return render json: {
+        success: false,
+        message: "You are already an instructor"
+      }, status: :unprocessable_entity
+    end
+
     if current_user.update(role: "educator")
       render json: {
         success: true,
@@ -581,5 +609,14 @@ class UsersController < ApplicationController
       success: false,
       message: "Stripe is not configured"
     }, status: :internal_server_error
+  end
+
+  def ensure_student_access!
+    return if current_user&.role == "student"
+
+    render json: {
+      success: false,
+      message: "Unauthorized access. This feature is available to students only."
+    }, status: :forbidden
   end
 end

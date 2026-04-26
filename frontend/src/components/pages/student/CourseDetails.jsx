@@ -119,6 +119,11 @@ const CourseDetails = () => {
       navigate("/auth");
       return;
     }
+
+    if (user.role !== "student") {
+      toast.error("Unauthorized access. Instructors cannot enroll in courses.");
+      return;
+    }
       
     if (isAlreadyEnrolled) {
       navigate(`/player/${id}`);

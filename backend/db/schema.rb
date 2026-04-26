@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_04_24_000000) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_25_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -170,6 +170,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_24_000000) do
     t.date "last_learning_on"
     t.date "streak_missed_notified_on"
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["role"], name: "index_users_on_role"
+    t.check_constraint "role::text = ANY (ARRAY['student'::character varying, 'educator'::character varying]::text[])", name: "users_role_allowed_values"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"

@@ -17,9 +17,7 @@ const MyEnrollments = () => {
     user,
     calculateNoOfLectures, 
     calculateCourseTime,
-    enrolledCourses: contextEnrolledCourses,
-    fetchUserEnrolledCourses,
-    api
+    fetchUserEnrolledCourses
   } = useContext(AppContext);
   
   const [enrolledCourses, setEnrolledCourses] = useState([]);
@@ -49,19 +47,18 @@ const MyEnrollments = () => {
       isFetchingEnrolledRef.current = true;
       setIsLoadingEnrolledCourses(true);
       
-      // Use the fetchUserEnrolledCourses from context if available
-      if (contextEnrolledCourses && contextEnrolledCourses.length > 0) {
-        setEnrolledCourses(contextEnrolledCourses);
+      // Prefer centralized context fetch to avoid duplicate requests across components.
+      if (fetchUserEnrolledCourses) {
+        const courses = await fetchUserEnrolledCourses();
+        setEnrolledCourses(Array.isArray(courses) ? courses : []);
       } else {
-        // Use direct URL instead of api instance with path
         const response = await axios.get(`${backendURL}/users/enrolled_courses`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
-        
+
         if (response.data.success) {
-          console.log("Fetched enrolled courses:", response.data.user_enrolled_courses);
           setEnrolledCourses(response.data.user_enrolled_courses.reverse());
         } else {
           toast.error(response.data.message || "Failed to fetch enrolled courses");
@@ -73,7 +70,7 @@ const MyEnrollments = () => {
       setIsLoadingEnrolledCourses(false);
       isFetchingEnrolledRef.current = false;
     }
-  }, [token, backendURL, contextEnrolledCourses, handleApiError]);
+  }, [token, backendURL, fetchUserEnrolledCourses, handleApiError]);
 
   // Fetch course progress
   const getCourseProgress = useCallback(async () => {
@@ -175,6 +172,14 @@ const MyEnrollments = () => {
   // Initial data load when component mounts
   useEffect(() => {
     let isMounted = true;
+
+    if (user && user.role !== "student") {
+      toast.error("Unauthorized access. Instructors cannot view student enrollments.");
+      navigate("/");
+      return () => {
+        isMounted = false;
+      };
+    }
     
     const initialize = async () => {
       if (token && isMounted) {
@@ -188,7 +193,7 @@ const MyEnrollments = () => {
     return () => {
       isMounted = false;
     };
-  }, [token, loadEnrolledCourses, loadAnnouncements]);
+  }, [token, user, navigate, loadEnrolledCourses, loadAnnouncements]);
 
   // Fetch course progress only after enrolledCourses are loaded
   useEffect(() => {
@@ -210,18 +215,10 @@ const MyEnrollments = () => {
   const refreshCourses = useCallback(() => {
     // Clear current progress data
     setProgressArray([]);
-    
-    // If we have a context function, use that, otherwise use our local method
-    if (fetchUserEnrolledCourses) {
-      fetchUserEnrolledCourses().then(courses => {
-        if (courses && courses.length > 0) {
-          setEnrolledCourses(courses);
-        }
-      });
-    } else {
-      loadEnrolledCourses();
-    }
-  }, [fetchUserEnrolledCourses, loadEnrolledCourses]);
+
+    loadEnrolledCourses();
+    loadAnnouncements();
+  }, [loadEnrolledCourses, loadAnnouncements]);
 
   const isLoading = isLoadingEnrolledCourses || isLoadingProgress;
 

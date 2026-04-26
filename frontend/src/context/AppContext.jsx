@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState, useCallback, useRef } from "react";
+import { createContext, useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import humanizeDuration from "humanize-duration";
 import axios from "axios";
@@ -49,12 +49,22 @@ export const AppContextProvider = (props) => {
     const fetchEnrolledCoursesRequestRef = useRef(false);
     const fetchAllCoursesRequestRef = useRef(false);
     const fetchNotificationsRequestRef = useRef(false);
+    const userRef = useRef(user);
+    const enrolledCoursesRef = useRef(enrolledCourses);
+
+    useEffect(() => {
+        userRef.current = user;
+    }, [user]);
+
+    useEffect(() => {
+        enrolledCoursesRef.current = enrolledCourses;
+    }, [enrolledCourses]);
 
     // Create an axios instance with custom config
-    const api = axios.create({
+    const api = useMemo(() => axios.create({
         baseURL: backendURL,
         headers: token ? { Authorization: `Bearer ${token}` } : {}
-    });
+    }), [backendURL, token]);
 
     // Update headers when token changes
     useEffect(() => {
@@ -80,11 +90,9 @@ export const AppContextProvider = (props) => {
             if (data.success) {
                 setUser(data.user);
                 localStorage.setItem("user", JSON.stringify(data.user));
-                
-                // Set educator status
-                if (data.user?.role === "educator") {
-                    setIsEducator(true);
-                }
+
+                // Keep educator mode in sync with server role.
+                setIsEducator(data.user?.role === "educator");
                 return data.user;
             }
             return null;
@@ -126,10 +134,16 @@ export const AppContextProvider = (props) => {
         }
     }, [backendURL]);
 
-    const fetchUserEnrolledCourses = useCallback(async () => {
+    const fetchUserEnrolledCourses = useCallback(async (current = null) => {
         // Don't fetch if no token, no user, already loading, or request in progress
-        if (!token || !user || isLoadingEnrolledCourses || fetchEnrolledCoursesRequestRef.current) {
-            return enrolledCourses; // Return current state if we can't fetch
+        const currentUser = current || userRef.current;
+        if (!token || !currentUser || fetchEnrolledCoursesRequestRef.current) {
+            return enrolledCoursesRef.current; // Return current state if we can't fetch
+        }
+
+        if (currentUser.role !== "student") {
+            setEnrolledCourses([]);
+            return [];
         }
       
         try {
@@ -148,7 +162,7 @@ export const AppContextProvider = (props) => {
                 return courses;
             } else {
                 toast.error(data.message || "Failed to fetch enrolled courses.");
-                return enrolledCourses; // Return current state on error
+                return enrolledCoursesRef.current; // Return current state on error
             }
         } catch (error) {
             console.error("Error fetching enrolled courses:", error);
@@ -159,12 +173,12 @@ export const AppContextProvider = (props) => {
                 setEnrolledCourses([]);
                 navigate('/auth');
             }
-            return enrolledCourses; // Return current state on error
+            return enrolledCoursesRef.current; // Return current state on error
         } finally {
             setIsLoadingEnrolledCourses(false);
             fetchEnrolledCoursesRequestRef.current = false;
         }
-    }, [backendURL, token, user, isLoadingEnrolledCourses, enrolledCourses]);
+    }, [backendURL, token, navigate]);
 
     const fetchNotifications = useCallback(async () => {
         if (!token || !user || fetchNotificationsRequestRef.current) return;
@@ -252,12 +266,17 @@ export const AppContextProvider = (props) => {
             await fetchAllCourses();
         }
 
+        let resolvedUser = userRef.current;
+
         if (token) {
-            await refreshUserData();
+            const refreshedUser = await refreshUserData();
+            if (refreshedUser) {
+                resolvedUser = refreshedUser;
+            }
         }
 
-        if (token && user && !isLoadingEnrolledCourses) {
-            await fetchUserEnrolledCourses();
+        if (token && resolvedUser && resolvedUser.role === "student") {
+            await fetchUserEnrolledCourses(resolvedUser);
         }
     };
 
@@ -268,11 +287,9 @@ export const AppContextProvider = (props) => {
     };
 }, [
     token,
-    user,
     dataLoaded,
     fetchAllCourses,
     refreshUserData,
-    isLoadingEnrolledCourses,
     fetchUserEnrolledCourses
 ]);
     // Handle manual refresh requests
