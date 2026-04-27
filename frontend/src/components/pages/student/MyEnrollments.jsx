@@ -100,13 +100,16 @@ const MyEnrollments = () => {
       
       const tempProgressArray = enrolledCourses.map((course, index) => {
         const response = responses[index];
-        const data = response.data;
+        const data = response.data || {};
         
         const totalLectures = calculateNoOfLectures ? 
           calculateNoOfLectures(course) : 
           calculateLocalNoOfLectures(course);
           
-        const lectureCompleted = data.progressData?.lecture_completed?.length || 0;
+        const progressData = data.progressData || {};
+        const completedLectures = progressData.lecture_completed || [];
+        const lectureCompleted = completedLectures.length || 0;
+        
         const completionPercentage =
           totalLectures > 0 ? (lectureCompleted / totalLectures) * 100 : 0;
         
@@ -119,7 +122,7 @@ const MyEnrollments = () => {
     } finally {
       setIsLoadingProgress(false);
     }
-  }, [enrolledCourses, calculateNoOfLectures, token, backendURL, isLoadingProgress, handleApiError]);
+  }, [enrolledCourses, calculateNoOfLectures, token, backendURL, handleApiError, isLoadingProgress]);
 
   const loadAnnouncements = useCallback(async () => {
     if (!token) return;
@@ -193,14 +196,16 @@ const MyEnrollments = () => {
     return () => {
       isMounted = false;
     };
-  }, [token, user, navigate, loadEnrolledCourses, loadAnnouncements]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, user, navigate]); // Removed loadEnrolledCourses, loadAnnouncements to prevent infinite loops
 
   // Fetch course progress only after enrolledCourses are loaded
   useEffect(() => {
     let isMounted = true;
     
     const loadProgress = async () => {
-      if (enrolledCourses.length > 0 && !isLoadingEnrolledCourses && progressArray.length === 0 && isMounted) {
+      // Check if enrolledCourses actually changed to avoid repeating progress fetches
+      if (enrolledCourses.length > 0 && !isLoadingEnrolledCourses && isMounted) {
         getCourseProgress();
       }
     };
@@ -210,7 +215,8 @@ const MyEnrollments = () => {
     return () => {
       isMounted = false;
     };
-  }, [enrolledCourses, getCourseProgress, isLoadingEnrolledCourses, progressArray.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enrolledCourses.length, isLoadingEnrolledCourses]); // Removed progressArray.length to prevent cycle
 
   const refreshCourses = useCallback(() => {
     // Clear current progress data
@@ -352,7 +358,14 @@ const MyEnrollments = () => {
                       }`}
                       onClick={() => navigate("/player/" + course.id)}
                     >
+                      {progressArray[index] &&
+                      progressArray[index].completionPercentage === 100
+                        ? "Completed"
+                        : "Continue Learning"}
+                    </button>
+                  </td>
 
+                  {/* Certificate */}
                   <td className="px-6 py-4">
                     <button
                       type="button"
@@ -365,12 +378,6 @@ const MyEnrollments = () => {
                       }`}
                     >
                       Download
-                    </button>
-                  </td>
-                      {progressArray[index] &&
-                      progressArray[index].completionPercentage === 100
-                        ? "Completed"
-                        : "Continue Learning"}
                     </button>
                   </td>
                 </tr>

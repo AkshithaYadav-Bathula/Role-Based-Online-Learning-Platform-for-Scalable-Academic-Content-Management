@@ -187,14 +187,34 @@ def get_vectorstore(course_id: int):
 # Rule 2: answer from general knowledge if academic
 # Rule 3: redirect if completely off-topic
 # -------------------------------------------------------
-rag_prompt = PromptTemplate.from_template("""
-You are a concise course tutor for an online learning platform.
-Keep answers under 4 sentences. No unnecessary explanation.
+# rag_prompt = PromptTemplate.from_template("""
+# You are a concise course tutor for an online learning platform.
+# Keep answers under 4 sentences. No unnecessary explanation.
 
-Rules:
-1. If the question is answered by the lecture context below, answer ONLY from that context.
-2. If it is a general academic or technical question not in context, answer briefly from your knowledge.
-3. If it is completely off-topic, say: "Please ask questions related to your course material."
+# Rules:
+# 1. If the question is answered by the lecture context below, answer ONLY from that context.
+# 2. If it is a general academic or technical question not in context, answer briefly from your knowledge.
+# 3. If it is completely off-topic, say: "Please ask questions related to your course material."
+
+# Lecture Context:
+# {context}
+
+# Student Question: {question}
+
+# Answer:
+# """)
+
+rag_prompt = PromptTemplate.from_template("""
+You are a strict course tutor for an online learning platform.
+You ONLY answer questions related to computer science, programming, software engineering, mathematics, or the lecture content provided.
+Keep answers under 4 sentences.
+
+Follow these rules WITHOUT EXCEPTION:
+1. If the question is answered by the lecture context below, answer using ONLY that context.
+2. If the question is about computer science, programming, software, databases, algorithms, mathematics, or any academic/technical topic — answer briefly from your knowledge even if not in context.
+3. If the question is about sports, entertainment, politics, celebrities, news, food, or ANYTHING not related to academics or technology — you MUST respond with exactly: "I can only answer questions related to your course or computer science topics."
+
+You must apply Rule 3 strictly. Do not answer sports questions, current events, or general knowledge trivia.
 
 Lecture Context:
 {context}
@@ -203,8 +223,6 @@ Student Question: {question}
 
 Answer:
 """)
-
-
 # -------------------------------------------------------
 # REQUEST MODELS
 # These define what JSON data each endpoint accepts

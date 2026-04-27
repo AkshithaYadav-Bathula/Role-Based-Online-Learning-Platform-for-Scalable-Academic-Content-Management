@@ -468,8 +468,10 @@ class UsersController < ApplicationController
 
     progress.lecture_completed ||= []
 
-    unless progress.lecture_completed.include?(lecture_id)
-      progress.lecture_completed << lecture_id
+    # Ensure we store string representation of UUID for consistency
+    lecture_id_str = lecture_id.to_s
+    unless progress.lecture_completed.include?(lecture_id_str)
+      progress.lecture_completed << lecture_id_str
       progress.save
     end
 

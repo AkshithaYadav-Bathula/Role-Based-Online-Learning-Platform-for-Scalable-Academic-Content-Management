@@ -279,20 +279,11 @@ const Player = () => {
         );
 
         setProgressData((prev) => {
-
-          const updated =
-            [...prev.lecture_completed];
-
-          if (
-            !updated.includes(
-              lecture.lecture_id ||
-              lecture.id
-            )
-          ) {
-            updated.push(
-              lecture.lecture_id ||
-              lecture.id
-            );
+          const updated = [...(prev.lecture_completed || [])].map(id => String(id));
+          const lectureIdStr = String(lecture.lecture_id || lecture.id);
+          
+          if (!updated.includes(lectureIdStr)) {
+            updated.push(lectureIdStr);
           }
 
           return {
@@ -407,10 +398,10 @@ const Player = () => {
 
 
   const isLectureCompleted = (lectureId) => {
-
+    if (!lectureId) return false;
     return (
-      progressData?.lecture_completed?.includes(
-        lectureId
+      progressData?.lecture_completed?.map(id => String(id)).includes(
+        String(lectureId)
       ) || false
     );
   };

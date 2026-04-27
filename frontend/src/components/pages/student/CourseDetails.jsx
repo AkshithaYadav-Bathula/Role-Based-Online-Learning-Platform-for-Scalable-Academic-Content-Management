@@ -142,13 +142,13 @@ const CourseDetails = () => {
   useEffect(() => {
     if (user && courseData) {
       // Check enrollment against both user payload and synced context state.
-      const userEnrolledIds = (user.enrolled_courses || []).map((course) => Number(course.id));
+      const userEnrolledIds = (user.enrolled_courses || []).map((course) => String(course.id));
       const contextEnrolledIds = (enrolledCourses || []).map((course) =>
-        Number(course.id || course.course_id)
+        String(course.id || course.course_id)
       );
 
       const enrolledSet = new Set([...userEnrolledIds, ...contextEnrolledIds]);
-      setIsAlreadyEnrolled(enrolledSet.has(Number(courseData.id)));
+      setIsAlreadyEnrolled(enrolledSet.has(String(courseData.id)));
     }
   }, [user, courseData, enrolledCourses]);
 
